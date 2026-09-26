@@ -26,20 +26,38 @@ export const Home: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchPosts = useCallback(async () => {
-    setIsLoading(true);
+  const fetchPosts = useCallback(async (
+    showLoader = true,
+    showError = true
+  ) => {
+    if (showLoader) {
+      setIsLoading(true);
+    }
+
     try {
       const data = await postsService.getPosts(selectedUniversity);
       setPosts(data);
     } catch {
-      showToast('Could not load campus feed', 'error');
+      if (showError) {
+        showToast('Could not load campus feed', 'error');
+      }
     } finally {
-      setIsLoading(false);
+      if (showLoader) {
+        setIsLoading(false);
+      }
     }
   }, [selectedUniversity, showToast]);
 
   useEffect(() => {
     fetchPosts();
+  }, [fetchPosts]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      fetchPosts(false, false);
+    }, 15000);
+
+    return () => window.clearInterval(intervalId);
   }, [fetchPosts]);
 
   // Listen for newly created posts from global layout modal

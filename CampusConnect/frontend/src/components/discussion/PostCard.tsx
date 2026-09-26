@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Post, User } from '../../types';
+import { formatTimeAgo } from '../../services/api';
 import { Avatar } from '../ui/Avatar';
 import { Badge } from '../ui/Badge';
 import { CommentSection } from './CommentSection';
@@ -64,7 +65,7 @@ export const PostCard: React.FC<PostCardProps> = ({
               <span>·</span>
               <span>{post.authorBatch}</span>
               <span>·</span>
-              <span>{post.createdAt}</span>
+              <span>{formatTimeAgo(post.createdAt)}</span>
             </div>
           </div>
         </div>
@@ -72,9 +73,8 @@ export const PostCard: React.FC<PostCardProps> = ({
           <Badge variant="category">{post.category}</Badge>
           <button
             onClick={handleSave}
-            className={`p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors ${
-              post.isSaved ? 'text-[#17243A] dark:text-slate-200 fill-current' : ''
-            }`}
+            className={`p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors ${post.isSaved ? 'text-[#17243A] dark:text-slate-200 fill-current' : ''
+              }`}
             title={post.isSaved ? 'Saved to bookmarks' : 'Save post'}
             aria-label={post.isSaved ? 'Remove from saved' : 'Save discussion'}
           >
@@ -98,11 +98,10 @@ export const PostCard: React.FC<PostCardProps> = ({
           <button
             onClick={handleUpvote}
             disabled={isUpvoting}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all min-h-[36px] ${
-              post.hasUpvoted
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all min-h-[36px] ${post.hasUpvoted
                 ? 'bg-[#17243A] text-white dark:bg-slate-200 dark:text-slate-900 shadow-xs'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
-            }`}
+              }`}
             aria-label={`Upvote discussion, currently ${post.upvotes} upvotes`}
           >
             <ArrowBigUp
@@ -114,11 +113,10 @@ export const PostCard: React.FC<PostCardProps> = ({
           {/* Comment button */}
           <button
             onClick={() => setShowComments((prev) => !prev)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-[36px] ${
-              showComments
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-[36px] ${showComments
                 ? 'bg-slate-200 text-slate-900 dark:bg-slate-800 dark:text-slate-100'
                 : 'bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800'
-            }`}
+              }`}
             aria-expanded={showComments}
             aria-label={`${post.commentCount} comments, click to ${showComments ? 'collapse' : 'expand'}`}
           >

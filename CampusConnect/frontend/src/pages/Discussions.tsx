@@ -23,20 +23,38 @@ export const Discussions: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<Category>('All');
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchPosts = useCallback(async () => {
-    setIsLoading(true);
+  const fetchPosts = useCallback(async (
+    showLoader = true,
+    showError = true
+  ) => {
+    if (showLoader) {
+      setIsLoading(true);
+    }
+
     try {
       const data = await postsService.getPosts(selectedUniversity, selectedCategory);
       setPosts(data);
     } catch {
-      showToast('Could not load discussions', 'error');
+      if (showError) {
+        showToast('Could not load discussions', 'error');
+      }
     } finally {
-      setIsLoading(false);
+      if (showLoader) {
+        setIsLoading(false);
+      }
     }
   }, [selectedUniversity, selectedCategory, showToast]);
 
   useEffect(() => {
     fetchPosts();
+  }, [fetchPosts]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      fetchPosts(false, false);
+    }, 15000);
+
+    return () => window.clearInterval(intervalId);
   }, [fetchPosts]);
 
   useEffect(() => {
@@ -80,10 +98,10 @@ export const Discussions: React.FC = () => {
         prev.map((p) =>
           p.id === postId
             ? {
-                ...p,
-                commentCount: p.commentCount + 1,
-                comments: [...(p.comments || []), comment],
-              }
+              ...p,
+              commentCount: p.commentCount + 1,
+              comments: [...(p.comments || []), comment],
+            }
             : p
         )
       );
@@ -132,11 +150,10 @@ export const Discussions: React.FC = () => {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`whitespace-nowrap px-3 py-1 text-xs font-medium rounded-md transition-colors min-h-[32px] ${
-                isSelected
+              className={`whitespace-nowrap px-3 py-1 text-xs font-medium rounded-md transition-colors min-h-[32px] ${isSelected
                   ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-semibold shadow-xs'
                   : 'bg-white dark:bg-[#131D31] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200/80 dark:border-slate-800'
-              }`}
+                }`}
             >
               {cat}
             </button>

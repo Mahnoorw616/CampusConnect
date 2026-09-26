@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Comment, User } from '../../types';
+import { formatTimeAgo } from '../../services/api';
 import { Avatar } from '../ui/Avatar';
 import { Send } from 'lucide-react';
 
@@ -55,7 +56,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                   <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
                     <span>{comment.authorUniversity}</span>
                     <span>·</span>
-                    <span>{comment.createdAt}</span>
+                    <span>{formatTimeAgo(comment.createdAt)}</span>
                   </div>
                 </div>
                 <p className="text-slate-700 dark:text-slate-300 leading-relaxed break-words whitespace-pre-wrap">
