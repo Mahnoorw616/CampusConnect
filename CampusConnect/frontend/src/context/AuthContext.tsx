@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, University } from '../types';
 import { authService } from '../services/api';
-import { INITIAL_USER } from '../services/mockData';
 
 interface AuthContextType {
   user: User | null;
@@ -19,14 +18,13 @@ interface AuthContextType {
     password: string;
   }) => Promise<void>;
   logout: () => Promise<void>;
-  setDemoUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(INITIAL_USER);
-  const [token, setToken] = useState<string | null>('mock_jwt_token_campuscrew_demo');
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUniversity, setSelectedUniversity] = useState<University>('All');
 
@@ -38,9 +36,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(storedUser);
           setToken(storedToken);
         } else {
-          // Keep initial student for instant usable experience or unauthenticated
-          setUser(INITIAL_USER);
-          setToken('mock_jwt_token_campuscrew_demo');
+          setUser(null);
+          setToken(null);
         }
       } catch (err) {
         console.error('Failed to load user session', err);
@@ -87,11 +84,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
   };
 
-  const setDemoUser = (newUser: User) => {
-    setUser(newUser);
-    localStorage.setItem('campuscrew_user', JSON.stringify(newUser));
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -103,7 +95,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         register,
         logout,
-        setDemoUser,
       }}
     >
       {children}

@@ -26,9 +26,8 @@ const ProtectedLayout: React.FC = () => {
     );
   }
 
-  // If user is not authenticated, redirect to public landing page
   if (!user) {
-    return <Navigate to="/landing" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   return <AppLayout />;

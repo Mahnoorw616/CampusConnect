@@ -26,7 +26,7 @@ interface OutletContextType {
 }
 
 export const Profile: React.FC = () => {
-  const { user, logout, setDemoUser } = useAuth();
+  const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -149,73 +149,7 @@ export const Profile: React.FC = () => {
           </div>
         </div>
 
-        {/* Switch Demo Student Persona Helper */}
-        <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-slate-400 flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5" />
-            Switch Demo Student:
-          </span>
-          <button
-            onClick={() =>
-              setDemoUser({
-                id: 'user-ahmed-1',
-                name: 'Ahmed Khan',
-                email: 'ahmed.khan@isb.nu.edu.pk',
-                university: 'FAST',
-                batch: 'Batch 2026',
-                whatsapp: '923005551234',
-                createdAt: '2025-09-10T10:00:00Z',
-              })
-            }
-            className={`px-2.5 py-1 rounded-md text-xs font-medium border ${
-              user.university === 'FAST'
-                ? 'bg-[#17243A] text-white border-slate-900'
-                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-            }`}
-          >
-            Ahmed (FAST)
-          </button>
-          <button
-            onClick={() =>
-              setDemoUser({
-                id: 'user-5',
-                name: 'Zainab Shah',
-                email: 'zainab.shah@seecs.nust.edu.pk',
-                university: 'NUST',
-                batch: 'Batch 2025',
-                whatsapp: '923129876543',
-                createdAt: '2025-09-12T10:00:00Z',
-              })
-            }
-            className={`px-2.5 py-1 rounded-md text-xs font-medium border ${
-              user.university === 'NUST'
-                ? 'bg-[#17243A] text-white border-slate-900'
-                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-            }`}
-          >
-            Zainab (NUST)
-          </button>
-          <button
-            onClick={() =>
-              setDemoUser({
-                id: 'user-8',
-                name: 'Muneeb Arshad',
-                email: 'muneeb@comsats.edu.pk',
-                university: 'COMSATS',
-                batch: 'Batch 2026',
-                whatsapp: '923334567890',
-                createdAt: '2025-09-15T10:00:00Z',
-              })
-            }
-            className={`px-2.5 py-1 rounded-md text-xs font-medium border ${
-              user.university === 'COMSATS'
-                ? 'bg-[#17243A] text-white border-slate-900'
-                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-            }`}
-          >
-            Muneeb (COMSATS)
-          </button>
-        </div>
+
       </div>
 
       {/* Tabs */}

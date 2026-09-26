@@ -1,5 +1,10 @@
-import { Post, MarketplaceItem, User, University, Category, Comment } from '../types';
-import { INITIAL_POSTS, INITIAL_MARKETPLACE, INITIAL_USER } from './mockData';
+import type { Post, MarketplaceItem, User, University, Category, Comment } from '../types';
+import { INITIAL_POSTS, INITIAL_MARKETPLACE } from './mockData';
+
+// ─── API base URL ─────────────────────────────────────────────────────────────
+const API_BASE =
+  (import.meta as unknown as { env: Record<string, string> }).env.VITE_API_BASE_URL ||
+  'http://localhost:5000';
 
 const STORAGE_KEYS = {
   USER: 'campuscrew_user',
@@ -9,65 +14,81 @@ const STORAGE_KEYS = {
   SAVED_POST_IDS: 'campuscrew_saved_post_ids',
 };
 
-// Initialize localStorage with realistic seed data if not present
+// ─── Seed mock data (posts & marketplace only) ────────────────────────────────
 function initializeStorage() {
   if (typeof window === 'undefined') return;
-
   if (!localStorage.getItem(STORAGE_KEYS.POSTS)) {
     localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(INITIAL_POSTS));
   }
-
   if (!localStorage.getItem(STORAGE_KEYS.MARKETPLACE)) {
     localStorage.setItem(STORAGE_KEYS.MARKETPLACE, JSON.stringify(INITIAL_MARKETPLACE));
   }
-
-  if (!localStorage.getItem(STORAGE_KEYS.USER)) {
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(INITIAL_USER));
-    localStorage.setItem(STORAGE_KEYS.TOKEN, 'mock_jwt_token_campuscrew_demo');
-  }
-
   if (!localStorage.getItem(STORAGE_KEYS.SAVED_POST_IDS)) {
     localStorage.setItem(STORAGE_KEYS.SAVED_POST_IDS, JSON.stringify(['post-1']));
   }
 }
-
 initializeStorage();
 
-// Delay helper to mimic realistic async backend response
-const delay = (ms = 80) => new Promise((resolve) => setTimeout(resolve, ms));
+// ─── Delay helper (used by mocked posts/marketplace services) ─────────────────
+const delay = (ms = 80) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+// ─── HTTP helper ──────────────────────────────────────────────────────────────
+async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    ...options,
+  });
+  const json: unknown = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(
+      (json as { message?: string }).message || `Request failed (${res.status})`
+    );
+  }
+  return json as T;
+}
+
+// ─── Normalize backend User → frontend User ───────────────────────────────────
+function normalizeUser(raw: Record<string, unknown>): User {
+  const batchYear =
+    typeof raw.batchYear === 'number' ? raw.batchYear : Number(raw.batchYear ?? new Date().getFullYear());
+  return {
+    id: String(raw._id ?? raw.id ?? ''),
+    name: String(raw.name ?? ''),
+    email: String(raw.email ?? ''),
+    university: (raw.university as Exclude<University, 'All'>) ?? 'Other',
+    batch: `Batch ${batchYear}`,
+    whatsapp: String(raw.whatsappNumber ?? raw.whatsapp ?? ''),
+    avatarBg: '#17243A',
+    createdAt: String(raw.createdAt ?? new Date().toISOString()),
+  };
+}
+
+// ─── Auth Service (real HTTP) ─────────────────────────────────────────────────
 export const authService = {
   async getCurrentUser(): Promise<{ user: User | null; token: string | null }> {
-    await delay(30);
-    const userStr = localStorage.getItem(STORAGE_KEYS.USER);
     const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
-    if (!userStr || !token) {
-      return { user: null, token: null };
-    }
+    const userStr = localStorage.getItem(STORAGE_KEYS.USER);
+    if (!token || !userStr) return { user: null, token: null };
     try {
-      return { user: JSON.parse(userStr), token };
+      return { user: JSON.parse(userStr) as User, token };
     } catch {
       return { user: null, token: null };
     }
   },
 
-  async login(email: string, _password: string): Promise<{ user: User; token: string }> {
-    await delay(120);
-    // Find existing or fallback to realistic student
-    const existingStr = localStorage.getItem(STORAGE_KEYS.USER);
-    let user: User = INITIAL_USER;
-    if (existingStr) {
-      try {
-        const parsed = JSON.parse(existingStr);
-        if (parsed.email === email) user = parsed;
-      } catch {
-        // fallback
-      }
-    }
-    const token = `jwt_token_${Date.now()}`;
+  async login(email: string, password: string): Promise<{ user: User; token: string }> {
+    const data = await apiRequest<{ token: string; user: Record<string, unknown> }>(
+      '/api/auth/login',
+      { method: 'POST', body: JSON.stringify({ email, password }) }
+    );
+    const user = normalizeUser(data.user);
+    localStorage.setItem(STORAGE_KEYS.TOKEN, data.token);
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-    return { user, token };
+    return { user, token: data.token };
   },
 
   async register(data: {
@@ -78,62 +99,66 @@ export const authService = {
     whatsapp: string;
     password: string;
   }): Promise<{ user: User; token: string }> {
-    await delay(150);
-    // Clean whatsapp number
-    const cleanWhatsapp = data.whatsapp.replace(/\D/g, '');
-    const newUser: User = {
-      id: `user-${Date.now()}`,
-      name: data.name.trim(),
-      email: data.email.trim(),
-      university: data.university,
-      batch: data.batch.trim() || 'Batch 2026',
-      whatsapp: cleanWhatsapp || '923001234567',
-      avatarBg: '#17243A',
-      createdAt: new Date().toISOString(),
-    };
-    const token = `jwt_token_${Date.now()}`;
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newUser));
-    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-    return { user: newUser, token };
+    // Parse batch year number from a string like "Batch 2026" or just "2026"
+    const batchYear =
+      parseInt(data.batch.replace(/\D/g, ''), 10) || new Date().getFullYear();
+    const res = await apiRequest<{ token: string; user: Record<string, unknown> }>(
+      '/api/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          name: data.name.trim(),
+          email: data.email.trim(),
+          password: data.password,
+          university: data.university,
+          batchYear,
+          whatsappNumber: data.whatsapp.trim(),
+        }),
+      }
+    );
+    const user = normalizeUser(res.user);
+    localStorage.setItem(STORAGE_KEYS.TOKEN, res.token);
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+    return { user, token: res.token };
   },
 
   async logout(): Promise<void> {
-    await delay(40);
     localStorage.removeItem(STORAGE_KEYS.USER);
     localStorage.removeItem(STORAGE_KEYS.TOKEN);
   },
 };
 
+// ─── Posts Service (mocked with localStorage) ─────────────────────────────────
 export const postsService = {
   async getPosts(university?: University, category?: Category): Promise<Post[]> {
     await delay(60);
     const raw = localStorage.getItem(STORAGE_KEYS.POSTS);
-    let posts: Post[] = raw ? JSON.parse(raw) : INITIAL_POSTS;
-    
-    // Check saved status
-    const savedIds: string[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.SAVED_POST_IDS) || '[]');
-    posts = posts.map(p => ({
-      ...p,
-      isSaved: savedIds.includes(p.id)
-    }));
+    let posts: Post[] = raw ? (JSON.parse(raw) as Post[]) : INITIAL_POSTS;
+
+    const savedIds: string[] = JSON.parse(
+      localStorage.getItem(STORAGE_KEYS.SAVED_POST_IDS) || '[]'
+    ) as string[];
+    posts = posts.map((p) => ({ ...p, isSaved: savedIds.includes(p.id) }));
 
     if (university && university !== 'All') {
-      posts = posts.filter(p => p.authorUniversity === university);
+      posts = posts.filter((p) => p.authorUniversity === university);
     }
-
     if (category && category !== 'All') {
-      posts = posts.filter(p => p.category === category);
+      posts = posts.filter((p) => p.category === category);
     }
-
     return posts;
   },
 
   async getSavedPosts(): Promise<Post[]> {
     await delay(50);
     const raw = localStorage.getItem(STORAGE_KEYS.POSTS);
-    const posts: Post[] = raw ? JSON.parse(raw) : INITIAL_POSTS;
-    const savedIds: string[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.SAVED_POST_IDS) || '[]');
-    return posts.filter(p => savedIds.includes(p.id)).map(p => ({ ...p, isSaved: true }));
+    const posts: Post[] = raw ? (JSON.parse(raw) as Post[]) : INITIAL_POSTS;
+    const savedIds: string[] = JSON.parse(
+      localStorage.getItem(STORAGE_KEYS.SAVED_POST_IDS) || '[]'
+    ) as string[];
+    return posts
+      .filter((p) => savedIds.includes(p.id))
+      .map((p) => ({ ...p, isSaved: true }));
   },
 
   async createPost(data: {
@@ -145,13 +170,13 @@ export const postsService = {
   }): Promise<Post> {
     await delay(100);
     const raw = localStorage.getItem(STORAGE_KEYS.POSTS);
-    const posts: Post[] = raw ? JSON.parse(raw) : INITIAL_POSTS;
+    const posts: Post[] = raw ? (JSON.parse(raw) as Post[]) : INITIAL_POSTS;
 
     const newPost: Post = {
       id: `post-${Date.now()}`,
       authorId: data.user.id,
       authorName: data.user.name,
-      authorUniversity: data.university || data.user.university,
+      authorUniversity: data.university ?? data.user.university,
       authorBatch: data.user.batch,
       title: data.title.trim(),
       content: data.content.trim(),
@@ -164,15 +189,16 @@ export const postsService = {
       comments: [],
     };
 
-    const updated = [newPost, ...posts];
-    localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(updated));
+    localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify([newPost, ...posts]));
     return newPost;
   },
 
-  async toggleUpvote(postId: string): Promise<{ upvotes: number; hasUpvoted: boolean }> {
+  async toggleUpvote(
+    postId: string
+  ): Promise<{ upvotes: number; hasUpvoted: boolean }> {
     await delay(40);
     const raw = localStorage.getItem(STORAGE_KEYS.POSTS);
-    const posts: Post[] = raw ? JSON.parse(raw) : INITIAL_POSTS;
+    const posts: Post[] = raw ? (JSON.parse(raw) as Post[]) : INITIAL_POSTS;
 
     let result = { upvotes: 0, hasUpvoted: false };
     const updated = posts.map((p) => {
@@ -180,26 +206,25 @@ export const postsService = {
         const currentlyUpvoted = !!p.hasUpvoted;
         const newUpvotes = currentlyUpvoted ? Math.max(0, p.upvotes - 1) : p.upvotes + 1;
         result = { upvotes: newUpvotes, hasUpvoted: !currentlyUpvoted };
-        return {
-          ...p,
-          upvotes: newUpvotes,
-          hasUpvoted: !currentlyUpvoted,
-        };
+        return { ...p, upvotes: newUpvotes, hasUpvoted: !currentlyUpvoted };
       }
       return p;
     });
-
     localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(updated));
     return result;
   },
 
   async toggleSavePost(postId: string): Promise<boolean> {
     await delay(30);
-    const savedIds: string[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.SAVED_POST_IDS) || '[]');
+    const savedIds: string[] = JSON.parse(
+      localStorage.getItem(STORAGE_KEYS.SAVED_POST_IDS) || '[]'
+    ) as string[];
     let isSaved: boolean;
     if (savedIds.includes(postId)) {
-      const next = savedIds.filter(id => id !== postId);
-      localStorage.setItem(STORAGE_KEYS.SAVED_POST_IDS, JSON.stringify(next));
+      localStorage.setItem(
+        STORAGE_KEYS.SAVED_POST_IDS,
+        JSON.stringify(savedIds.filter((id) => id !== postId))
+      );
       isSaved = false;
     } else {
       savedIds.push(postId);
@@ -212,7 +237,7 @@ export const postsService = {
   async addComment(postId: string, content: string, user: User): Promise<Comment> {
     await delay(60);
     const raw = localStorage.getItem(STORAGE_KEYS.POSTS);
-    const posts: Post[] = raw ? JSON.parse(raw) : INITIAL_POSTS;
+    const posts: Post[] = raw ? (JSON.parse(raw) as Post[]) : INITIAL_POSTS;
 
     const newComment: Comment = {
       id: `c-${Date.now()}`,
@@ -234,12 +259,12 @@ export const postsService = {
       }
       return p;
     });
-
     localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(updated));
     return newComment;
   },
 };
 
+// ─── Marketplace Service (mocked with localStorage) ───────────────────────────
 export const marketplaceService = {
   async getListings(params?: {
     university?: University;
@@ -248,28 +273,27 @@ export const marketplaceService = {
   }): Promise<MarketplaceItem[]> {
     await delay(60);
     const raw = localStorage.getItem(STORAGE_KEYS.MARKETPLACE);
-    let items: MarketplaceItem[] = raw ? JSON.parse(raw) : INITIAL_MARKETPLACE;
+    let items: MarketplaceItem[] = raw
+      ? (JSON.parse(raw) as MarketplaceItem[])
+      : INITIAL_MARKETPLACE;
 
     if (params?.university && params.university !== 'All') {
-      items = items.filter(item => item.university === params.university);
+      items = items.filter((item) => item.university === params.university);
     }
-
     if (params?.type === 'free') {
-      items = items.filter(item => item.price === 0);
+      items = items.filter((item) => item.price === 0);
     } else if (params?.type === 'paid') {
-      items = items.filter(item => item.price > 0);
+      items = items.filter((item) => item.price > 0);
     }
-
     if (params?.courseQuery && params.courseQuery.trim()) {
       const q = params.courseQuery.toLowerCase().trim();
       items = items.filter(
-        item =>
+        (item) =>
           item.courseName.toLowerCase().includes(q) ||
           item.courseCode.toLowerCase().includes(q) ||
           item.title.toLowerCase().includes(q)
       );
     }
-
     return items;
   },
 
@@ -288,7 +312,9 @@ export const marketplaceService = {
   ): Promise<MarketplaceItem> {
     await delay(120);
     const raw = localStorage.getItem(STORAGE_KEYS.MARKETPLACE);
-    const items: MarketplaceItem[] = raw ? JSON.parse(raw) : INITIAL_MARKETPLACE;
+    const items: MarketplaceItem[] = raw
+      ? (JSON.parse(raw) as MarketplaceItem[])
+      : INITIAL_MARKETPLACE;
 
     const newItem: MarketplaceItem = {
       id: `market-${Date.now()}`,
@@ -306,16 +332,22 @@ export const marketplaceService = {
       createdAt: 'Just now',
     };
 
-    const updated = [newItem, ...items];
-    localStorage.setItem(STORAGE_KEYS.MARKETPLACE, JSON.stringify(updated));
+    localStorage.setItem(
+      STORAGE_KEYS.MARKETPLACE,
+      JSON.stringify([newItem, ...items])
+    );
     return newItem;
   },
 
   async deleteListing(listingId: string): Promise<void> {
     await delay(50);
     const raw = localStorage.getItem(STORAGE_KEYS.MARKETPLACE);
-    const items: MarketplaceItem[] = raw ? JSON.parse(raw) : INITIAL_MARKETPLACE;
-    const filtered = items.filter(i => i.id !== listingId);
-    localStorage.setItem(STORAGE_KEYS.MARKETPLACE, JSON.stringify(filtered));
+    const items: MarketplaceItem[] = raw
+      ? (JSON.parse(raw) as MarketplaceItem[])
+      : INITIAL_MARKETPLACE;
+    localStorage.setItem(
+      STORAGE_KEYS.MARKETPLACE,
+      JSON.stringify(items.filter((i) => i.id !== listingId))
+    );
   },
 };

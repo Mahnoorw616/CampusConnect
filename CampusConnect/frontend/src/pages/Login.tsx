@@ -10,8 +10,8 @@ export const Login: React.FC = () => {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState('ahmed.khan@isb.nu.edu.pk');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -106,21 +106,6 @@ export const Login: React.FC = () => {
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
-
-          {/* Quick Demo Fill */}
-          <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
-            <span className="text-[11px] text-slate-400 block mb-2">Hackathon Quick Test</span>
-            <button
-              type="button"
-              onClick={() => {
-                setEmail('ahmed.khan@isb.nu.edu.pk');
-                setPassword('password123');
-              }}
-              className="w-full text-xs py-1.5 rounded-md bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100"
-            >
-              Fill Demo Student Credentials
-            </button>
-          </div>
         </div>
 
         {/* Footer Link */}
