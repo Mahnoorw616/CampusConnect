@@ -1,6 +1,6 @@
-# CampusConnect — Complete Backend Project
+# CampusCrew — Complete Backend Project
 
-This archive contains the working backend for the CampusConnect hackathon MVP.
+This archive contains the working backend for the CampusCrew hackathon MVP.
 
 ## Implemented
 

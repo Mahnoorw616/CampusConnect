@@ -1,0 +1,6 @@
+{
+  "name": "CampusCrew",
+  "description": "Student-to-student community platform and peer study marketplace for university students.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

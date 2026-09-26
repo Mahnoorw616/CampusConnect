@@ -31,7 +31,6 @@ app.get('/api/health', (_req, res) => {
         environment: process.env.NODE_ENV || 'development'
     });
 });
-
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/marketplace', marketplaceRoutes);

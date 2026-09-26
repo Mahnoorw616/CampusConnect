@@ -6,9 +6,9 @@ const port = Number(process.env.PORT) || 5000;
 const startServer = async () => {
   try {
     await connectDatabase();
-    app.listen(port, () => console.log(`CampusConnect API listening on port ${port}`));
+    app.listen(port, () => console.log(`CampusCrew API listening on port ${port}`));
   } catch (error) {
-    console.error(`Unable to start CampusConnect API: ${error.message}`);
+    console.error(`Unable to start CampusCrew API: ${error.message}`);
     process.exit(1);
   }
 };
