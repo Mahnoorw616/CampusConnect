@@ -262,16 +262,19 @@ const normalizePost = (value: unknown): Post => {
     title: asString(raw.title),
     content: asString(raw.content),
     category,
-    upvotes: asNumber(
-      raw.upvotesCount ?? raw.upvotes
-    ),
+    reactions: (raw.reactions as Record<ReactionType, number>) || {
+      Relatable: 0,
+      Helpful: 0,
+      Support: 0,
+      Vibe: 0,
+    },
     commentCount: comments.length,
     createdAt: asString(
       raw.createdAt,
       new Date().toISOString()
     ),
     comments,
-    hasUpvoted: Boolean(raw.hasUpvoted),
+    userReaction: raw.userReaction as ReactionType | undefined,
   };
 };
 
@@ -606,48 +609,15 @@ const createMockPost = (data: {
     title: data.title.trim(),
     content: data.content.trim(),
     category: data.category,
-    upvotes: 1,
+    reactions: { Relatable: 0, Helpful: 0, Support: 0, Vibe: 0 },
     commentCount: 0,
     createdAt: new Date().toISOString(),
-    hasUpvoted: true,
     isSaved: false,
     comments: [],
   };
 
   writeMockPosts([post, ...readMockPosts()]);
   return post;
-};
-
-const toggleMockUpvote = (postId: string) => {
-  const posts = readMockPosts();
-  let result = {
-    upvotes: 0,
-    hasUpvoted: false,
-  };
-
-  writeMockPosts(
-    posts.map((post) => {
-      if (post.id !== postId) return post;
-
-      const currentlyUpvoted = Boolean(post.hasUpvoted);
-      const upvotes = currentlyUpvoted
-        ? Math.max(0, post.upvotes - 1)
-        : post.upvotes + 1;
-
-      result = {
-        upvotes,
-        hasUpvoted: !currentlyUpvoted,
-      };
-
-      return {
-        ...post,
-        upvotes,
-        hasUpvoted: !currentlyUpvoted,
-      };
-    })
-  );
-
-  return result;
 };
 
 const addMockComment = (
@@ -901,57 +871,7 @@ export const postsService = {
     return result;
   },
 
-  async toggleSavePost(postId: string): Promise<boolean> {
-    await delay(30);
-    const savedIds: string[] = JSON.parse(
-      localStorage.getItem(STORAGE_KEYS.SAVED_POST_IDS) || '[]'
-    ) as string[];
-    let isSaved: boolean;
-    if (savedIds.includes(postId)) {
-      localStorage.setItem(
-        STORAGE_KEYS.SAVED_POST_IDS,
-        JSON.stringify(savedIds.filter((id) => id !== postId))
-      );
-      isSaved = false;
-    } else {
-      savedIds.push(postId);
-      localStorage.setItem(STORAGE_KEYS.SAVED_POST_IDS, JSON.stringify(savedIds));
-      isSaved = true;
-    }
-  },
 
-  async toggleUpvote(postId: string): Promise<{
-    upvotes: number;
-    hasUpvoted: boolean;
-  }> {
-    if (shouldUseMockData()) {
-      await delay(40);
-      return toggleMockUpvote(postId);
-    }
-
-    try {
-      const result = await apiRequest<{
-        upvoted: boolean;
-        upvotesCount: number;
-      }>(
-        `/api/posts/${encodeURIComponent(postId)}/upvote`,
-        {
-          method: 'POST',
-        }
-      );
-
-      return {
-        upvotes: asNumber(result.upvotesCount),
-        hasUpvoted: Boolean(result.upvoted),
-      };
-    } catch (error) {
-      if (shouldFallbackToMockData()) {
-        await delay(40);
-        return toggleMockUpvote(postId);
-      }
-      throw error;
-    }
-  },
 
   async toggleSavePost(
     postId: string
