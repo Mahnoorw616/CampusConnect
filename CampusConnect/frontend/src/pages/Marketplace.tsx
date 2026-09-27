@@ -25,8 +25,14 @@ export const Marketplace: React.FC = () => {
   const [courseQuery, setCourseQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchListings = useCallback(async () => {
-    setIsLoading(true);
+  const fetchListings = useCallback(async (
+    showLoader = true,
+    showError = true
+  ) => {
+    if (showLoader) {
+      setIsLoading(true);
+    }
+
     try {
       const data = await marketplaceService.getListings({
         university: selectedUniversity,
@@ -35,14 +41,26 @@ export const Marketplace: React.FC = () => {
       });
       setItems(data);
     } catch {
-      showToast('Could not load study resources', 'error');
+      if (showError) {
+        showToast('Could not load study resources', 'error');
+      }
     } finally {
-      setIsLoading(false);
+      if (showLoader) {
+        setIsLoading(false);
+      }
     }
   }, [selectedUniversity, priceFilter, courseQuery, showToast]);
 
   useEffect(() => {
     fetchListings();
+  }, [fetchListings]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      fetchListings(false, false);
+    }, 15000);
+
+    return () => window.clearInterval(intervalId);
   }, [fetchListings]);
 
   useEffect(() => {

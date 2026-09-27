@@ -37,6 +37,12 @@ export const AppLayout: React.FC = () => {
 
   useEffect(() => {
     refreshHighlights();
+
+    const intervalId = window.setInterval(() => {
+      refreshHighlights();
+    }, 30000);
+
+    return () => window.clearInterval(intervalId);
   }, []);
 
   const handleCreatePost = async (data: {

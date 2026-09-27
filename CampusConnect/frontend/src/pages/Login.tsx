@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { getErrorMessage } from '../services/api';
 import { BrandLogo } from '../components/ui/BrandLogo';
 import { ArrowRight } from 'lucide-react';
 
@@ -22,14 +23,19 @@ export const Login: React.FC = () => {
       return;
     }
 
+    if (!/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(email.trim())) {
+      setError('Please provide a complete and valid email address.');
+      return;
+    }
+
     setError('');
     setIsLoading(true);
     try {
       await login(email, password);
       showToast('Welcome back to CampusCrew!', 'success');
       navigate('/');
-    } catch {
-      setError('Invalid login credentials. Please try again.');
+    } catch (error) {
+      setError(getErrorMessage(error, 'Invalid login credentials. Please try again.'));
     } finally {
       setIsLoading(false);
     }

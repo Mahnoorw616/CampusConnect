@@ -8,15 +8,50 @@ const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
 const app = express();
 
-const allowedOrigins = process.env.CLIENT_ORIGIN
-    ? process.env.CLIENT_ORIGIN.split(',').map((origin) => origin.trim())
-    : ['http://localhost:5173'];
+const configuredOrigins = process.env.CLIENT_ORIGIN
+    ? process.env.CLIENT_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : [];
+
+const defaultOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173'
+];
+
+const allowedOrigins = new Set([...defaultOrigins, ...configuredOrigins]);
+
+const isPrivateDevelopmentOrigin = (origin) => {
+    if (process.env.NODE_ENV === 'production') return false;
+
+    try {
+        const hostname = new URL(origin).hostname;
+        return (
+            hostname === 'localhost' ||
+            hostname === '127.0.0.1' ||
+            hostname === '::1' ||
+            hostname.startsWith('10.') ||
+            hostname.startsWith('192.168.') ||
+            /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname)
+        );
+    } catch (_error) {
+        return false;
+    }
+};
 
 app.use(helmet());
 
 app.use(
     cors({
-        origin: allowedOrigins,
+        origin: (origin, callback) => {
+            // Requests without an Origin header include curl, health checks, and
+            // same-origin server requests. They should remain allowed.
+            if (!origin || allowedOrigins.has(origin) || isPrivateDevelopmentOrigin(origin)) {
+                return callback(null, true);
+            }
+
+            return callback(new Error(`CORS origin is not allowed: ${origin}`));
+        },
         credentials: true
     })
 );

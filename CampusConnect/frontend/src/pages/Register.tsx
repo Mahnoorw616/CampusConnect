@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { getErrorMessage } from '../services/api';
 import { REGISTER_UNIVERSITIES, University } from '../types';
 import { BrandLogo } from '../components/ui/BrandLogo';
 import { ArrowRight } from 'lucide-react';
@@ -26,12 +27,25 @@ export const Register: React.FC = () => {
       setError('Please fill in all required fields.');
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(email.trim())) {
+      setError('Please provide a complete and valid email address, for example ahmedkhan@isb.nu.edu.pk.');
+      return;
+    }
     if (password.length < 8) {
       setError('Password should be at least 8 characters.');
       return;
     }
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d\s])\S{8,}$/.test(password)) {
+      setError('Password must include uppercase and lowercase letters, a number, and a special character.');
+      return;
+    }
     if (!whatsapp.trim()) {
       setError('Please provide your WhatsApp number for peer book/notes inquiries.');
+      return;
+    }
+    const batchYear = Number(batch.replace(/\D/g, ''));
+    if (!Number.isInteger(batchYear) || batchYear < 2000 || batchYear > 2100) {
+      setError('Batch year must be a year between 2000 and 2100.');
       return;
     }
 
@@ -48,8 +62,8 @@ export const Register: React.FC = () => {
       });
       showToast('Welcome to CampusCrew! Your student account is active.', 'success');
       navigate('/');
-    } catch {
-      setError('Could not complete registration. Please try again.');
+    } catch (error) {
+      setError(getErrorMessage(error, 'Could not complete registration.'));
     } finally {
       setIsLoading(false);
     }
@@ -171,7 +185,7 @@ export const Register: React.FC = () => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 6 characters"
+                placeholder="8+ chars: Aa1!"
                 className="w-full text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#17243A]"
               />
             </div>

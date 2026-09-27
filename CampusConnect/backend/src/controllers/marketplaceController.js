@@ -80,26 +80,30 @@ const createListing = async (req, res, next) => {
     try {
         const {
             title,
+            courseName,
             courseCode,
             pricePKR,
             universityTag,
-            driveLink
+            driveLink,
+            description,
+            coverImage
         } = req.body;
 
         if (
             !title ||
+            !courseName ||
             !courseCode ||
             pricePKR === undefined ||
             pricePKR === null ||
             pricePKR === '' ||
             (typeof pricePKR === 'string' && !pricePKR.trim()) ||
             !universityTag ||
-            !driveLink
+            !description
         ) {
             return res.status(400).json({
                 success: false,
                 message:
-                    'title, courseCode, pricePKR, universityTag, and driveLink are required'
+                    'title, courseName, courseCode, pricePKR, universityTag, and description are required'
             });
         }
 
@@ -121,7 +125,14 @@ const createListing = async (req, res, next) => {
             });
         }
 
-        if (!isValidGoogleDriveLink(driveLink)) {
+        const normalizedDriveLink = driveLink
+            ? String(driveLink).trim()
+            : '';
+
+        if (
+            normalizedDriveLink &&
+            !isValidGoogleDriveLink(normalizedDriveLink)
+        ) {
             return res.status(400).json({
                 success: false,
                 message:
@@ -129,13 +140,35 @@ const createListing = async (req, res, next) => {
             });
         }
 
+        const normalizedCoverImage = coverImage
+            ? String(coverImage).trim()
+            : '';
+
+        if (normalizedCoverImage) {
+            try {
+                const imageUrl = new URL(normalizedCoverImage);
+
+                if (!['http:', 'https:'].includes(imageUrl.protocol)) {
+                    throw new Error('Invalid cover image protocol');
+                }
+            } catch (_error) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'coverImage must be a valid HTTP or HTTPS URL'
+                });
+            }
+        }
+
         const listing = await Marketplace.create({
             title: String(title).trim(),
+            courseName: String(courseName).trim(),
             courseCode: String(courseCode).trim().toUpperCase(),
             pricePKR: numericPrice,
             universityTag: normalizedUniversity,
             sellerId: req.user._id,
-            driveLink: String(driveLink).trim()
+            description: String(description).trim(),
+            driveLink: normalizedDriveLink,
+            coverImage: normalizedCoverImage
         });
 
         const populatedListing = await populateListing(
