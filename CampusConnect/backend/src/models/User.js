@@ -48,6 +48,24 @@ const userSchema = new mongoose.Schema({
     trim: true,
     minlength: [7, 'WhatsApp number is too short'],
     maxlength: [20, 'WhatsApp number is too long']
+  },
+  bio: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Bio cannot exceed 500 characters'],
+    default: ''
+  },
+  avatar: {
+    type: String,
+    trim: true,
+    maxlength: [2000, 'Avatar URL cannot exceed 2000 characters'],
+    default: ''
+  },
+  role: {
+    type: String,
+    enum: ['user', 'moderator', 'admin'],
+    default: 'user',
+    index: true
   }
 }, { timestamps: true, versionKey: false });
 

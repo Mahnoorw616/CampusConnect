@@ -9,11 +9,11 @@ This archive contains the working backend for the CampusCrew hackathon MVP.
 - User model and registration/login
 - bcrypt password hashing
 - JWT creation and protected-route verification
-- Post model with title, content, authorId, universityTag, upvotesCount, comments, and upvote tracking
+- Post model with title, content, authorId, universityTag, reactions, comments, replies, and GridFS-backed media
 - University-filtered post listing: `GET /api/posts?uni=FAST`
 - Authenticated post creation: `POST /api/posts`
 - Flat comments: `POST /api/posts/:id/comment`
-- Toggle upvotes: `POST /api/posts/:id/upvote`
+- Toggle reactions: `POST /api/posts/:id/react`
 - Environment configuration through `.env`
 
 ## Structure
@@ -88,7 +88,8 @@ PORT=5000
 MONGO_URI=mongodb+srv://USERNAME:PASSWORD@CLUSTER.mongodb.net/campusconnect?retryWrites=true&w=majority
 JWT_SECRET=replace-with-a-long-random-secret-at-least-32-characters
 JWT_EXPIRES_IN=7d
-CLIENT_ORIGIN=http://localhost:5173
+CLIENT_ORIGIN=http://localhost:3000
+PUBLIC_API_ORIGIN=http://localhost:5000
 ```
 
 Never commit `.env` or share `JWT_SECRET`.
@@ -164,14 +165,16 @@ curl -X POST http://localhost:5000/api/posts/POST_ID/comment \
   -d '{"text":"I recommend this course."}'
 ```
 
-### 12. Toggle an upvote
+### 12. Toggle a reaction
 
 ```bash
-curl -X POST http://localhost:5000/api/posts/POST_ID/upvote \
-  -H "Authorization: Bearer YOUR_TOKEN"
+curl -X POST http://localhost:5000/api/posts/POST_ID/react \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{"reactionType":"Helpful"}'
 ```
 
-The first call adds the upvote; the second call removes it.
+The first call adds the reaction; the second call removes that user's reaction. Reactions are stored atomically with one reaction per user per post.
 
 ## Troubleshooting
 

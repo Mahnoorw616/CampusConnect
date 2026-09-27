@@ -2,21 +2,251 @@
 
 Base URL: `http://localhost:5000/api`
 
+All protected routes require:
+
+```text
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
 ## Public routes
 
-- `GET /health`
-- `POST /auth/register`
-- `POST /auth/login`
+### Health
 
-Registration fields: `name`, `email`, `password`, `university`, `batchYear`, `whatsappNumber`.
+```text
+GET /health
+```
 
-## Protected routes
+### Register
 
-Use `Authorization: Bearer YOUR_JWT_TOKEN`.
+```text
+POST /auth/register
+```
 
-- `GET /posts?uni=FAST` — list posts, optionally filtered by university.
-- `POST /posts` — create `{ title, content, universityTag }`.
-- `POST /posts/:id/comment` — add `{ text }` as the authenticated user.
-- `POST /posts/:id/upvote` — toggle the authenticated user's upvote.
+Body:
 
-Calling the upvote endpoint once adds an upvote; calling it again removes that user's upvote.
+```json
+{
+  "name": "Ayesha Khan",
+  "email": "ayesha@example.com",
+  "password": "Campus123!",
+  "university": "FAST",
+  "batchYear": 2028,
+  "whatsappNumber": "+923001234567"
+}
+```
+
+### Login
+
+```text
+POST /auth/login
+```
+
+Body:
+
+```json
+{
+  "email": "ayesha@example.com",
+  "password": "Campus123!"
+}
+```
+
+## Protected post routes
+
+### List posts
+
+```text
+GET /posts?page=1&limit=20&uni=FAST&category=General
+```
+
+Supported categories:
+
+- `Admissions`
+- `Course Review`
+- `General`
+
+The response includes `total`, `page`, `limit`, and `pages` pagination metadata.
+
+### Create a post
+
+```text
+POST /posts
+```
+
+Body:
+
+```json
+{
+  "title": "Which CS electives are best?",
+  "content": "Please share your experience.",
+  "universityTag": "FAST",
+  "category": "General",
+  "mediaUrl": ""
+}
+```
+
+`mediaUrl` may be an HTTPS URL or a supported Base64 image/video data URL. Base64 files are stored in MongoDB GridFS and the post stores only the generated media URL.
+
+### Update a post
+
+```text
+PUT /posts/:id
+```
+
+Any supplied field is updated. The authenticated user must own the post.
+
+### Delete a post
+
+```text
+DELETE /posts/:id
+```
+
+The authenticated user must own the post. Related reactions, comment reactions, and GridFS media are cleaned up.
+
+### Toggle a post reaction
+
+```text
+POST /posts/:id/react
+```
+
+Body:
+
+```json
+{
+  "reactionType": "Helpful"
+}
+```
+
+Supported reaction types:
+
+- `Relatable`
+- `Helpful`
+- `Support`
+- `Vibe`
+
+The operation is transactional and one user can have at most one reaction per post.
+
+## Protected comment routes
+
+### Add a comment
+
+```text
+POST /posts/:id/comment
+```
+
+Body:
+
+```json
+{
+  "text": "I recommend this course."
+}
+```
+
+### Update a comment
+
+```text
+PUT /posts/:postId/comments/:commentId
+```
+
+Body:
+
+```json
+{
+  "text": "Updated comment text"
+}
+```
+
+The authenticated user must own the comment.
+
+### Delete a comment
+
+```text
+DELETE /posts/:postId/comments/:commentId
+```
+
+The authenticated user must own the comment.
+
+### Toggle a comment reaction
+
+```text
+POST /posts/:postId/comments/:commentId/react
+```
+
+Body:
+
+```json
+{
+  "reactionType": "Helpful"
+}
+```
+
+### Add a reply
+
+```text
+POST /posts/:postId/comments/:commentId/reply
+```
+
+Body:
+
+```json
+{
+  "text": "This helped me too."
+}
+```
+
+Comments support up to 50 replies and posts support up to 500 comments.
+
+## Protected marketplace routes
+
+### List marketplace items
+
+```text
+GET /marketplace?page=1&limit=20&uni=FAST
+```
+
+The response includes pagination metadata.
+
+### Create a listing
+
+```text
+POST /marketplace
+```
+
+Body fields:
+
+- `title`
+- `courseName`
+- `courseCode`
+- `pricePKR`
+- `universityTag`
+- `description`
+- `driveLink` (optional HTTPS Google link)
+- `coverImage` (optional HTTPS URL or Base64 image data URL)
+
+Base64 cover images are stored in MongoDB GridFS and only the generated URL is stored in the listing.
+
+### Delete a listing
+
+```text
+DELETE /marketplace/:id
+```
+
+Only the seller can delete their listing. Stored GridFS cover media is also removed.
+
+## Media route
+
+```text
+GET /media/:id
+```
+
+This route streams media stored in MongoDB GridFS. It is public so browser image and video elements can load it without attaching a Bearer token.
+
+## Error behavior
+
+- `400` invalid input or IDs
+- `401` missing or invalid authentication
+- `403` ownership violation
+- `404` resource not found
+- `409` duplicate unique record
+- `413` request payload too large
+- `429` rate limit exceeded
+- `500` unexpected server error

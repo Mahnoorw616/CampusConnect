@@ -8,9 +8,9 @@ import { MessageSquare, Bookmark, MoreVertical, Edit2, Trash2 } from 'lucide-rea
 // ─── Reaction definitions ─────────────────────────────────────────────────────
 const REACTIONS: { type: ReactionType; emoji: string; label: string; color: string }[] = [
   { type: 'Relatable', emoji: '😂', label: 'Relatable', color: 'text-amber-500' },
-  { type: 'Helpful',   emoji: '💡', label: 'Helpful',   color: 'text-yellow-500' },
-  { type: 'Support',   emoji: '🤝', label: 'Support',   color: 'text-blue-500'   },
-  { type: 'Vibe',      emoji: '🔥', label: 'Vibe',      color: 'text-rose-500'   },
+  { type: 'Helpful', emoji: '💡', label: 'Helpful', color: 'text-yellow-500' },
+  { type: 'Support', emoji: '🤝', label: 'Support', color: 'text-blue-500' },
+  { type: 'Vibe', emoji: '🔥', label: 'Vibe', color: 'text-rose-500' },
 ];
 
 function totalReactions(reactions: Record<ReactionType, number>): number {
@@ -202,13 +202,13 @@ export const PostCard: React.FC<PostCardProps> = ({
                   <MoreVertical className="w-4 h-4" />
                 </button>
                 {showPostMenu && (
-                  <div className="absolute right-0 top-8 z-30 w-32 bg-white dark:bg-dark-card border border-slate-200 dark:border-dark-border rounded-xl shadow-lg py-1 text-xs">
+                  <div className="absolute right-0 top-8 z-30 w-32 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg py-1 text-xs">
                     <button
                       onClick={() => {
                         setIsEditingPost(true);
                         setShowPostMenu(false);
                       }}
-                      className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
+                      className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100"
                     >
                       <Edit2 className="w-3.5 h-3.5" /> Edit Post
                     </button>
@@ -235,25 +235,25 @@ export const PostCard: React.FC<PostCardProps> = ({
               type="text"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              className="w-full text-sm font-semibold p-2 bg-white dark:bg-dark-bg border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+              className="w-full text-sm font-semibold p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40"
             />
             <textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
               rows={3}
-              className="w-full text-sm p-2 bg-white dark:bg-dark-bg border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+              className="w-full text-sm p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40"
             />
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setIsEditingPost(false)}
-                className="px-3 py-1.5 text-xs bg-slate-200 dark:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-300"
+                className="px-3 py-1.5 text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg text-slate-800 dark:text-slate-100"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-3 py-1.5 text-xs bg-primary-600 text-white rounded-lg font-medium"
+                className="px-3 py-1.5 text-xs bg-[#17243A] hover:bg-[#101827] dark:bg-slate-200 dark:hover:bg-white text-white dark:text-slate-900 rounded-lg font-medium"
               >
                 Save Changes
               </button>
