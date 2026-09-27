@@ -1,43 +1,76 @@
 const mongoose = require('mongoose');
 const Notification = require('../models/Notifications');
 const Post = require('../models/Post');
+const PostReaction = require('../models/PostReaction');
+const CommentReaction = require('../models/CommentReaction');
+const { normalizeMediaValue, deleteMediaById } = require('../config/mediaStore');
 const { UNIVERSITY_OPTIONS } = require('../constants/universities');
 
-const serializePost = (post, viewerId) => {
-  const returnedPost = post.toObject();
-  const viewerStr = viewerId ? viewerId.toString() : '';
-  const userRec = (post.userReactions || []).find(
-    (r) => r.userId && r.userId.toString() === viewerStr
-  );
-  returnedPost.userReaction = userRec ? userRec.reactionType : undefined;
-  if (!returnedPost.reactions) {
-    returnedPost.reactions = { Relatable: 0, Helpful: 0, Support: 0, Vibe: 0 };
-  }
-  delete returnedPost.userReactions;
-  delete returnedPost.upvotedBy;
+const REACTION_TYPES = ['Relatable', 'Helpful', 'Support', 'Vibe'];
+const CATEGORIES = ['Admissions', 'Course Review', 'General'];
+const EMPTY_REACTIONS = { Relatable: 0, Helpful: 0, Support: 0, Vibe: 0 };
 
-  if (Array.isArray(returnedPost.comments)) {
-    returnedPost.comments = returnedPost.comments.map((comment) => {
-      const commentUserRec = (comment.userReactions || []).find(
-        (r) => r.userId && r.userId.toString() === viewerStr
-      );
-      comment.userReaction = commentUserRec ? commentUserRec.reactionType : undefined;
-      if (!comment.reactions) {
-        comment.reactions = { Relatable: 0, Helpful: 0, Support: 0, Vibe: 0 };
-      }
-      delete comment.userReactions;
-      return comment;
-    });
-  }
+const httpError = (statusCode, message) => Object.assign(new Error(message), { statusCode });
+const getOrigin = (req) => (process.env.PUBLIC_API_ORIGIN || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+const mediaIdFromUrl = (url) => String(url || '').match(/\/api\/media\/([a-f0-9]{24})$/i)?.[1] || '';
 
-  return returnedPost;
+const pagination = (query) => {
+  const pageValue = Number.parseInt(query.page, 10);
+  const limitValue = Number.parseInt(query.limit, 10);
+  const page = Number.isInteger(pageValue) && pageValue > 0 ? pageValue : 1;
+  const limit = Number.isInteger(limitValue) && limitValue > 0 ? Math.min(limitValue, 100) : 20;
+  return { page, limit, skip: (page - 1) * limit };
 };
 
-const populatePost = (query) =>
-  query
-    .populate('authorId', 'name university batchYear bio avatar')
-    .populate('comments.authorId', 'name university batchYear bio avatar')
-    .populate('comments.replies.authorId', 'name university batchYear bio avatar');
+const populatePost = (query) => query
+  .populate('authorId', 'name university batchYear bio avatar')
+  .populate('comments.authorId', 'name university batchYear bio avatar')
+  .populate('comments.replies.authorId', 'name university batchYear bio avatar');
+
+const reactionMaps = async (posts, userId) => {
+  const ids = posts.map((post) => post._id);
+  if (!ids.length) return { posts: new Map(), comments: new Map() };
+  const [postReactions, commentReactions] = await Promise.all([
+    PostReaction.find({ postId: { $in: ids }, userId }).lean(),
+    CommentReaction.find({ postId: { $in: ids }, userId }).lean()
+  ]);
+  return {
+    posts: new Map(postReactions.map((r) => [r.postId.toString(), r.reactionType])),
+    comments: new Map(commentReactions.map((r) => [`${r.postId}:${r.commentId}`, r.reactionType]))
+  };
+};
+
+const serializePost = (post, maps) => {
+  const value = post.toObject();
+  const postId = post._id.toString();
+  value.reactions = { ...EMPTY_REACTIONS, ...(value.reactions || {}) };
+  value.userReaction = maps.posts.get(postId);
+  value.comments = (value.comments || []).map((comment) => {
+    const commentId = comment._id.toString();
+    comment.reactions = { ...EMPTY_REACTIONS, ...(comment.reactions || {}) };
+    comment.userReaction = maps.comments.get(`${postId}:${commentId}`);
+    delete comment.userReactions;
+    return comment;
+  });
+  delete value.userReactions;
+  delete value.upvotedBy;
+  delete value.upvotesCount;
+  return value;
+};
+
+const serializeOne = async (post, userId) => serializePost(post, await reactionMaps([post], userId));
+
+const validatePostFields = ({ title, content, category, universityTag }) => {
+  const normalizedTitle = title === undefined ? undefined : String(title).trim();
+  const normalizedContent = content === undefined ? undefined : String(content).trim();
+  const normalizedCategory = category === undefined ? undefined : String(category).trim();
+  const normalizedUniversity = universityTag === undefined ? undefined : String(universityTag).trim();
+  if (normalizedTitle !== undefined && (normalizedTitle.length < 3 || normalizedTitle.length > 140)) return { error: 'Post title must be between 3 and 140 characters' };
+  if (normalizedContent !== undefined && (normalizedContent.length < 1 || normalizedContent.length > 5000)) return { error: 'Post content must be between 1 and 5000 characters' };
+  if (normalizedCategory !== undefined && !CATEGORIES.includes(normalizedCategory)) return { error: `category must be one of: ${CATEGORIES.join(', ')}` };
+  if (normalizedUniversity !== undefined && !UNIVERSITY_OPTIONS.includes(normalizedUniversity)) return { error: `universityTag must be one of: ${UNIVERSITY_OPTIONS.join(', ')}` };
+  return { normalizedTitle, normalizedContent, normalizedCategory, normalizedUniversity };
+};
 
 // Notifications should never turn a successfully saved interaction into an error.
 const notify = async (recipient, sender, type, message, post) => {
@@ -51,451 +84,211 @@ const notify = async (recipient, sender, type, message, post) => {
 
 const getPosts = async (req, res, next) => {
   try {
+    const filter = {};
     const university = req.query.uni ? String(req.query.uni).trim() : '';
     const category = req.query.category ? String(req.query.category).trim() : '';
-    const filter = {};
-
     if (university) {
-      if (!UNIVERSITY_OPTIONS.includes(university)) {
-        return res.status(400).json({
-          success: false,
-          message: `uni must be one of: ${UNIVERSITY_OPTIONS.join(', ')}`
-        });
-      }
-
+      if (!UNIVERSITY_OPTIONS.includes(university)) return res.status(400).json({ success: false, message: `uni must be one of: ${UNIVERSITY_OPTIONS.join(', ')}` });
       filter.universityTag = university;
     }
-
     if (category) {
-      if (!['Admissions', 'Course Review', 'General'].includes(category)) {
-        return res.status(400).json({
-          success: false,
-          message: 'category must be one of: Admissions, Course Review, General'
-        });
-      }
-
+      if (!CATEGORIES.includes(category)) return res.status(400).json({ success: false, message: `category must be one of: ${CATEGORIES.join(', ')}` });
       filter.category = category;
     }
-
-    const posts = await populatePost(Post.find(filter).sort({ createdAt: -1 }));
-
-    return res.status(200).json({
-      success: true,
-      count: posts.length,
-      posts: posts.map((post) => serializePost(post, req.user._id))
-    });
+    const { page, limit, skip } = pagination(req.query);
+    const [posts, total] = await Promise.all([
+      populatePost(Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit)),
+      Post.countDocuments(filter)
+    ]);
+    const maps = await reactionMaps(posts, req.user._id);
+    return res.json({ success: true, count: posts.length, total, page, limit, pages: Math.ceil(total / limit), posts: posts.map((post) => serializePost(post, maps)) });
   } catch (error) { return next(error); }
 };
 
 const createPost = async (req, res, next) => {
   try {
     const { title, content, universityTag, category, mediaUrl } = req.body;
-
-    if (!title || !content || !universityTag) {
-      return res.status(400).json({
-        success: false,
-        message: 'title, content, and universityTag are required'
-      });
-    }
-
-    const normalizedUniversity = String(universityTag).trim();
-    const normalizedCategory = category
-      ? String(category).trim()
-      : 'General';
-
-    if (!UNIVERSITY_OPTIONS.includes(normalizedUniversity)) {
-      return res.status(400).json({
-        success: false,
-        message: `universityTag must be one of: ${UNIVERSITY_OPTIONS.join(', ')}`
-      });
-    }
-
-    if (!['Admissions', 'Course Review', 'General'].includes(normalizedCategory)) {
-      return res.status(400).json({
-        success: false,
-        message: 'category must be one of: Admissions, Course Review, General'
-      });
-    }
-
-    const post = await Post.create({
-      title: String(title).trim(),
-      content: String(content).trim(),
-      universityTag: normalizedUniversity,
-      category: normalizedCategory,
-      mediaUrl: mediaUrl ? String(mediaUrl) : '',
-      reactions: { Relatable: 0, Helpful: 0, Support: 0, Vibe: 0 },
-      userReactions: [],
-      authorId: req.user._id
-    });
-
-    const populatedPost = await populatePost(Post.findById(post._id));
-
-    return res.status(201).json({
-      success: true,
-      message: 'Post created successfully',
-      post: serializePost(await populatedPost, req.user._id)
-    });
+    if (!title || !content || !universityTag) return res.status(400).json({ success: false, message: 'title, content, and universityTag are required' });
+    const fields = validatePostFields({ title, content, category, universityTag });
+    if (fields.error) return res.status(400).json({ success: false, message: fields.error });
+    const storedMediaUrl = await normalizeMediaValue({ value: mediaUrl, kind: 'post', requestOrigin: getOrigin(req) });
+    const post = await Post.create({ title: fields.normalizedTitle, content: fields.normalizedContent, universityTag: fields.normalizedUniversity, category: fields.normalizedCategory || 'General', mediaUrl: storedMediaUrl, reactions: { ...EMPTY_REACTIONS }, authorId: req.user._id });
+    return res.status(201).json({ success: true, message: 'Post created successfully', post: await serializeOne(await populatePost(Post.findById(post._id)), req.user._id) });
   } catch (error) { return next(error); }
 };
 
 const updatePost = async (req, res, next) => {
   try {
-    if (!mongoose.isValidObjectId(req.params.id)) {
-      return res.status(400).json({ success: false, message: 'Invalid post ID' });
-    }
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid post ID' });
     const post = await Post.findById(req.params.id);
-    if (!post) {
-      return res.status(404).json({ success: false, message: 'Post not found' });
-    }
-
-    if (post.authorId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: 'Not authorized to edit this post' });
-    }
-
-    const { title, content, mediaUrl, category, universityTag } = req.body;
-    if (title) post.title = String(title).trim();
-    if (content) post.content = String(content).trim();
-    if (mediaUrl !== undefined) post.mediaUrl = String(mediaUrl);
-    if (category) post.category = String(category).trim();
-    if (universityTag) post.universityTag = String(universityTag).trim();
-
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
+    if (post.authorId.toString() !== req.user._id.toString()) return res.status(403).json({ success: false, message: 'Not authorized to edit this post' });
+    const fields = validatePostFields(req.body);
+    if (fields.error) return res.status(400).json({ success: false, message: fields.error });
+    const oldMediaId = mediaIdFromUrl(post.mediaUrl);
+    if (fields.normalizedTitle !== undefined) post.title = fields.normalizedTitle;
+    if (fields.normalizedContent !== undefined) post.content = fields.normalizedContent;
+    if (fields.normalizedCategory !== undefined) post.category = fields.normalizedCategory;
+    if (fields.normalizedUniversity !== undefined) post.universityTag = fields.normalizedUniversity;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'mediaUrl')) post.mediaUrl = await normalizeMediaValue({ value: req.body.mediaUrl, kind: 'post', requestOrigin: getOrigin(req) });
     await post.save();
-    const populatedPost = await populatePost(Post.findById(post._id));
-
-    return res.status(200).json({
-      success: true,
-      message: 'Post updated successfully',
-      post: serializePost(await populatedPost, req.user._id)
-    });
+    const newMediaId = mediaIdFromUrl(post.mediaUrl);
+    if (oldMediaId && oldMediaId !== newMediaId) await deleteMediaById(oldMediaId);
+    return res.json({ success: true, message: 'Post updated successfully', post: await serializeOne(await populatePost(Post.findById(post._id)), req.user._id) });
   } catch (error) { return next(error); }
 };
 
 const deletePost = async (req, res, next) => {
   try {
-    if (!mongoose.isValidObjectId(req.params.id)) {
-      return res.status(400).json({ success: false, message: 'Invalid post ID' });
-    }
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid post ID' });
     const post = await Post.findById(req.params.id);
-    if (!post) {
-      return res.status(404).json({ success: false, message: 'Post not found' });
-    }
-
-    if (post.authorId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: 'Not authorized to delete this post' });
-    }
-
-    await Post.findByIdAndDelete(req.params.id);
-
-    return res.status(200).json({
-      success: true,
-      message: 'Post deleted successfully',
-      postId: req.params.id
-    });
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
+    if (post.authorId.toString() !== req.user._id.toString()) return res.status(403).json({ success: false, message: 'Not authorized to delete this post' });
+    await Promise.all([PostReaction.deleteMany({ postId: post._id }), CommentReaction.deleteMany({ postId: post._id }), Post.findByIdAndDelete(post._id)]);
+    const mediaId = mediaIdFromUrl(post.mediaUrl);
+    if (mediaId) await deleteMediaById(mediaId);
+    return res.json({ success: true, message: 'Post deleted successfully', postId: req.params.id });
   } catch (error) { return next(error); }
 };
 
 const addComment = async (req, res, next) => {
   try {
-    const { text } = req.body;
-    const normalizedText = text ? String(text).trim() : '';
-
-    if (!normalizedText) {
-      return res.status(400).json({
-        success: false,
-        message: 'Comment text is required'
-      });
-    }
-
-    if (normalizedText.length > 1000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Comment cannot exceed 1000 characters'
-      });
-    }
-
-    if (!mongoose.isValidObjectId(req.params.id)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid post ID'
-      });
-    }
-
+    const text = typeof req.body.text === 'string' ? req.body.text.trim() : '';
+    if (!text) return res.status(400).json({ success: false, message: 'Comment text is required' });
+    if (text.length > 1000) return res.status(400).json({ success: false, message: 'Comment cannot exceed 1000 characters' });
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid post ID' });
     const now = new Date();
-    const post = await Post.findByIdAndUpdate(
-      req.params.id,
-      {
-        $push: {
-          comments: {
-            text: normalizedText,
-            authorId: req.user._id,
-            reactions: { Relatable: 0, Helpful: 0, Support: 0, Vibe: 0 },
-            userReactions: [],
-            replies: [],
-            createdAt: now,
-            updatedAt: now
-          }
-        }
-      },
-      {
-        new: true,
-        runValidators: true
-      }
-    );
-
-    if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: 'Post not found'
-      });
-    }
-
+    const post = await Post.findByIdAndUpdate(req.params.id, { $push: { comments: { text, authorId: req.user._id, reactions: { ...EMPTY_REACTIONS }, replies: [], createdAt: now, updatedAt: now } } }, { new: true, runValidators: true });
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
     await notify(post.authorId, req.user._id, 'COMMENT', `${req.user.name} commented on your discussion: ${post.title}`, post._id);
-    const populatedPost = await populatePost(Post.findById(post._id));
-
-    return res.status(201).json({
-      success: true,
-      message: 'Comment added successfully',
-      post: serializePost(await populatedPost, req.user._id)
-    });
+    return res.status(201).json({ success: true, message: 'Comment added successfully', post: await serializeOne(await populatePost(Post.findById(post._id)), req.user._id) });
   } catch (error) { return next(error); }
+};
+
+const getPostComment = async (postId, commentId) => {
+  if (!mongoose.isValidObjectId(postId) || !mongoose.isValidObjectId(commentId)) throw httpError(400, 'Invalid ID parameters');
+  const post = await Post.findById(postId);
+  if (!post) throw httpError(404, 'Post not found');
+  const comment = post.comments.id(commentId);
+  if (!comment) throw httpError(404, 'Comment not found');
+  return { post, comment };
 };
 
 const updateComment = async (req, res, next) => {
   try {
-    const { text } = req.body;
-    const { id: postId, commentId } = req.params;
-
-    if (!mongoose.isValidObjectId(postId) || !mongoose.isValidObjectId(commentId)) {
-      return res.status(400).json({ success: false, message: 'Invalid ID parameters' });
-    }
-
-    const post = await Post.findById(postId);
-    if (!post) {
-      return res.status(404).json({ success: false, message: 'Post not found' });
-    }
-
-    const comment = post.comments.id(commentId);
-    if (!comment) {
-      return res.status(404).json({ success: false, message: 'Comment not found' });
-    }
-
-    if (comment.authorId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: 'Not authorized to edit this comment' });
-    }
-
-    comment.text = String(text).trim();
+    const text = typeof req.body.text === 'string' ? req.body.text.trim() : '';
+    if (!text) return res.status(400).json({ success: false, message: 'Comment text is required' });
+    if (text.length > 1000) return res.status(400).json({ success: false, message: 'Comment cannot exceed 1000 characters' });
+    const { post, comment } = await getPostComment(req.params.id, req.params.commentId);
+    if (comment.authorId.toString() !== req.user._id.toString()) return res.status(403).json({ success: false, message: 'Not authorized to edit this comment' });
+    comment.text = text;
     await post.save();
-    const populatedPost = await populatePost(Post.findById(post._id));
-
-    return res.status(200).json({
-      success: true,
-      message: 'Comment updated successfully',
-      post: serializePost(await populatedPost, req.user._id)
-    });
+    return res.json({ success: true, message: 'Comment updated successfully', post: await serializeOne(await populatePost(Post.findById(post._id)), req.user._id) });
   } catch (error) { return next(error); }
 };
 
 const deleteComment = async (req, res, next) => {
   try {
-    const { id: postId, commentId } = req.params;
-
-    if (!mongoose.isValidObjectId(postId) || !mongoose.isValidObjectId(commentId)) {
-      return res.status(400).json({ success: false, message: 'Invalid ID parameters' });
-    }
-
-    const post = await Post.findById(postId);
-    if (!post) {
-      return res.status(404).json({ success: false, message: 'Post not found' });
-    }
-
-    const comment = post.comments.id(commentId);
-    if (!comment) {
-      return res.status(404).json({ success: false, message: 'Comment not found' });
-    }
-
-    if (comment.authorId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: 'Not authorized to delete this comment' });
-    }
-
-    post.comments.pull(commentId);
+    const { post, comment } = await getPostComment(req.params.id, req.params.commentId);
+    if (comment.authorId.toString() !== req.user._id.toString()) return res.status(403).json({ success: false, message: 'Not authorized to delete this comment' });
+    await CommentReaction.deleteMany({ postId: post._id, commentId: comment._id });
+    post.comments.pull(comment._id);
     await post.save();
-    const populatedPost = await populatePost(Post.findById(post._id));
-
-    return res.status(200).json({
-      success: true,
-      message: 'Comment deleted successfully',
-      post: serializePost(await populatedPost, req.user._id)
-    });
+    return res.json({ success: true, message: 'Comment deleted successfully', post: await serializeOne(await populatePost(Post.findById(post._id)), req.user._id) });
   } catch (error) { return next(error); }
 };
 
 const toggleCommentReaction = async (req, res, next) => {
+  if (!REACTION_TYPES.includes(req.body.reactionType)) return res.status(400).json({ success: false, message: 'Invalid reaction type' });
+  const session = await mongoose.startSession();
   try {
-    const { reactionType } = req.body;
-    const { id: postId, commentId } = req.params;
-
-    if (!['Relatable', 'Helpful', 'Support', 'Vibe'].includes(reactionType)) {
-      return res.status(400).json({ success: false, message: 'Invalid reaction type' });
-    }
-
-    const post = await Post.findById(postId);
-    if (!post) {
-      return res.status(404).json({ success: false, message: 'Post not found' });
-    }
-
-    const comment = post.comments.id(commentId)
-      || post.comments.find((c) => c._id && c._id.toString() === commentId);
-    if (!comment) {
-      return res.status(404).json({ success: false, message: 'Comment not found' });
-    }
-
-    const userIdStr = req.user._id.toString();
-    const userReactions = comment.userReactions || [];
-    const existingIndex = userReactions.findIndex(
-      (r) => r.userId && r.userId.toString() === userIdStr
-    );
-
-    if (!comment.reactions) {
-      comment.reactions = { Relatable: 0, Helpful: 0, Support: 0, Vibe: 0 };
-    }
-
-    let newUserReaction;
-    if (existingIndex >= 0) {
-      const existingType = userReactions[existingIndex].reactionType;
-      comment.reactions[existingType] = Math.max(0, (comment.reactions[existingType] || 0) - 1);
-
-      if (existingType === reactionType) {
-        userReactions.splice(existingIndex, 1);
-        newUserReaction = undefined;
+    let result;
+    await session.withTransaction(async () => {
+      const { post, comment } = await getPostComment(req.params.id, req.params.commentId);
+      const sessionPost = await Post.findById(post._id).session(session);
+      const sessionComment = sessionPost.comments.id(comment._id);
+      const existing = await CommentReaction.findOne({ postId: sessionPost._id, commentId: sessionComment._id, userId: req.user._id }).session(session);
+      sessionComment.reactions = { ...EMPTY_REACTIONS, ...(sessionComment.reactions || {}) };
+      let userReaction;
+      if (!existing) {
+        sessionComment.reactions[req.body.reactionType] += 1;
+        await CommentReaction.create([{ postId: sessionPost._id, commentId: sessionComment._id, userId: req.user._id, reactionType: req.body.reactionType }], { session });
+        userReaction = req.body.reactionType;
+      } else if (existing.reactionType === req.body.reactionType) {
+        sessionComment.reactions[existing.reactionType] = Math.max(0, sessionComment.reactions[existing.reactionType] - 1);
+        await CommentReaction.deleteOne({ _id: existing._id }).session(session);
       } else {
-        userReactions[existingIndex].reactionType = reactionType;
-        comment.reactions[reactionType] = (comment.reactions[reactionType] || 0) + 1;
-        newUserReaction = reactionType;
+        sessionComment.reactions[existing.reactionType] = Math.max(0, sessionComment.reactions[existing.reactionType] - 1);
+        sessionComment.reactions[req.body.reactionType] += 1;
+        existing.reactionType = req.body.reactionType;
+        await existing.save({ session });
+        userReaction = req.body.reactionType;
       }
-    } else {
-      userReactions.push({ userId: req.user._id, reactionType });
-      comment.reactions[reactionType] = (comment.reactions[reactionType] || 0) + 1;
-      newUserReaction = reactionType;
-    }
-
-    comment.userReactions = userReactions;
-    post.markModified('comments');
-    await post.save();
-
-    return res.status(200).json({
-      success: true,
-      reactions: comment.reactions,
-      userReaction: newUserReaction,
+      sessionPost.markModified('comments');
+      await sessionPost.save({ session });
+      result = { reactions: sessionComment.reactions.toObject ? sessionComment.reactions.toObject() : sessionComment.reactions, userReaction };
     });
-  } catch (error) { return next(error); }
+    return res.json({ success: true, ...result });
+  } catch (error) { return next(error); } finally { await session.endSession(); }
 };
 
 const addCommentReply = async (req, res, next) => {
   try {
-    const { text } = req.body;
-    const { id: postId, commentId } = req.params;
-
-    if (!text || !String(text).trim()) {
-      return res.status(400).json({ success: false, message: 'Reply text is required' });
-    }
-
-    const post = await Post.findById(postId);
-    if (!post) {
-      return res.status(404).json({ success: false, message: 'Post not found' });
-    }
-
-    const comment = post.comments.id(commentId)
-      || post.comments.find((c) => c._id && c._id.toString() === commentId);
-    if (!comment) {
-      return res.status(404).json({ success: false, message: 'Comment not found' });
-    }
-
-    comment.replies.push({
-      text: String(text).trim(),
-      authorId: req.user._id,
-      createdAt: new Date()
-    });
-
+    const text = typeof req.body.text === 'string' ? req.body.text.trim() : '';
+    if (!text) return res.status(400).json({ success: false, message: 'Reply text is required' });
+    if (text.length > 1000) return res.status(400).json({ success: false, message: 'Reply cannot exceed 1000 characters' });
+    const { post, comment } = await getPostComment(req.params.id, req.params.commentId);
+    if (!Array.isArray(comment.replies)) comment.replies = [];
+    comment.replies.push({ text, authorId: req.user._id, createdAt: new Date() });
     await post.save();
     await notify(comment.authorId, req.user._id, 'COMMENT', `${req.user.name} replied to your comment on: ${post.title}`, post._id);
-    const populatedPost = await populatePost(Post.findById(post._id));
-
-    return res.status(201).json({
-      success: true,
-      message: 'Reply added successfully',
-      post: serializePost(await populatedPost, req.user._id)
-    });
+    return res.status(201).json({ success: true, message: 'Reply added successfully', post: await serializeOne(await populatePost(Post.findById(post._id)), req.user._id) });
   } catch (error) { return next(error); }
 };
 
 const toggleReaction = async (req, res, next) => {
+  if (!REACTION_TYPES.includes(req.body.reactionType)) return res.status(400).json({ success: false, message: 'Invalid reaction type' });
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid post ID' });
+  const session = await mongoose.startSession();
   try {
-    const { reactionType } = req.body;
-    if (!['Relatable', 'Helpful', 'Support', 'Vibe'].includes(reactionType)) {
-      return res.status(400).json({ success: false, message: 'Invalid reaction type' });
-    }
-    if (!mongoose.isValidObjectId(req.params.id)) {
-      return res.status(400).json({ success: false, message: 'Invalid post ID' });
-    }
-    const post = await Post.findById(req.params.id);
-    if (!post) {
-      return res.status(404).json({ success: false, message: 'Post not found' });
-    }
-
-    const userIdStr = req.user._id.toString();
-    const userReactions = post.userReactions || [];
-    const existingIndex = userReactions.findIndex(
-      (r) => r.userId && r.userId.toString() === userIdStr
-    );
-
-    if (!post.reactions) {
-      post.reactions = { Relatable: 0, Helpful: 0, Support: 0, Vibe: 0 };
-    }
-
-    let newUserReaction;
-    if (existingIndex >= 0) {
-      const existingType = userReactions[existingIndex].reactionType;
-      post.reactions[existingType] = Math.max(0, (post.reactions[existingType] || 0) - 1);
-
-      if (existingType === reactionType) {
-        userReactions.splice(existingIndex, 1);
-        newUserReaction = undefined;
+    let result;
+    await session.withTransaction(async () => {
+      const post = await Post.findById(req.params.id).session(session);
+      if (!post) throw httpError(404, 'Post not found');
+      const existing = await PostReaction.findOne({ postId: post._id, userId: req.user._id }).session(session);
+      post.reactions = { ...EMPTY_REACTIONS, ...(post.reactions || {}) };
+      let userReaction;
+      if (!existing) {
+        post.reactions[req.body.reactionType] += 1;
+        await PostReaction.create([{ postId: post._id, userId: req.user._id, reactionType: req.body.reactionType }], { session });
+        userReaction = req.body.reactionType;
+      } else if (existing.reactionType === req.body.reactionType) {
+        post.reactions[existing.reactionType] = Math.max(0, post.reactions[existing.reactionType] - 1);
+        await PostReaction.deleteOne({ _id: existing._id }).session(session);
       } else {
-        userReactions[existingIndex].reactionType = reactionType;
-        post.reactions[reactionType] = (post.reactions[reactionType] || 0) + 1;
-        newUserReaction = reactionType;
+        post.reactions[existing.reactionType] = Math.max(0, post.reactions[existing.reactionType] - 1);
+        post.reactions[req.body.reactionType] += 1;
+        existing.reactionType = req.body.reactionType;
+        await existing.save({ session });
+        userReaction = req.body.reactionType;
       }
-    } else {
-      userReactions.push({ userId: req.user._id, reactionType });
-      post.reactions[reactionType] = (post.reactions[reactionType] || 0) + 1;
-      newUserReaction = reactionType;
-    }
-
-    post.userReactions = userReactions;
-    post.markModified('reactions');
-    post.markModified('userReactions');
-    await post.save();
-    if (newUserReaction && existingIndex < 0) {
-      await notify(post.authorId, req.user._id, 'LIKE', `${req.user.name} reacted to your discussion: ${post.title}`, post._id);
-    }
-
-    return res.status(200).json({
-      success: true,
-      reactions: post.reactions,
-      userReaction: newUserReaction,
+      post.markModified('reactions');
+      await post.save({ session });
+      if (userReaction && !existing) {
+        try {
+          await Notification.create([{
+            recipientId: post.authorId,
+            senderId: req.user._id,
+            type: 'LIKE',
+            text: `${req.user.name || 'Someone'} reacted to your discussion: ${post.title}`,
+            postId: post._id
+          }], { session });
+        } catch (_err) { /* ignore notification failure */ }
+      }
+      result = { reactions: post.reactions.toObject ? post.reactions.toObject() : post.reactions, userReaction };
     });
-  } catch (error) { return next(error); }
+    return res.json({ success: true, ...result });
+  } catch (error) { return next(error); } finally { await session.endSession(); }
 };
 
-module.exports = {
-  getPosts,
-  createPost,
-  updatePost,
-  deletePost,
-  addComment,
-  updateComment,
-  deleteComment,
-  toggleCommentReaction,
-  addCommentReply,
-  toggleReaction
-};
+module.exports = { getPosts, createPost, updatePost, deletePost, addComment, updateComment, deleteComment, toggleCommentReaction, addCommentReply, toggleReaction };

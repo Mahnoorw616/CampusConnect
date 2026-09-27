@@ -42,7 +42,13 @@ const commentSchema = new mongoose.Schema({
     Vibe: { type: Number, default: 0, min: 0 },
   },
   userReactions: [reactionRecordSchema],
-  replies: [replySchema]
+  replies: {
+    type: [replySchema],
+    validate: {
+      validator: (value) => value.length <= 50,
+      message: 'A comment cannot have more than 50 replies'
+    }
+  }
 }, { timestamps: true, versionKey: false });
 
 const postSchema = new mongoose.Schema({
@@ -84,7 +90,11 @@ const postSchema = new mongoose.Schema({
     default: 'General',
     index: true
   },
-  mediaUrl: { type: String, default: '' },
+  mediaUrl: {
+    type: String,
+    default: '',
+    maxlength: [2000, 'Media URL cannot exceed 2000 characters']
+  },
   reactions: {
     Relatable: { type: Number, default: 0, min: 0 },
     Helpful: { type: Number, default: 0, min: 0 },
@@ -92,7 +102,13 @@ const postSchema = new mongoose.Schema({
     Vibe: { type: Number, default: 0, min: 0 },
   },
   userReactions: [reactionRecordSchema],
-  comments: [commentSchema]
+  comments: {
+    type: [commentSchema],
+    validate: {
+      validator: (value) => value.length <= 500,
+      message: 'A post cannot have more than 500 comments'
+    }
+  }
 }, { timestamps: true, versionKey: false });
 
 postSchema.set('toJSON', { transform: (_document, returnedObject) => { delete returnedObject.upvotedBy; return returnedObject; } });

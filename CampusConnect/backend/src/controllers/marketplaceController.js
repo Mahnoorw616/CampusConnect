@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
 const Marketplace = require('../models/Marketplace');
 const { UNIVERSITY_OPTIONS } = require('../constants/universities');
+const {
+    normalizeMediaValue,
+    deleteMediaById
+} = require('../config/mediaStore');
 
 const GOOGLE_DRIVE_HOSTS = new Set([
     'drive.google.com',
@@ -28,6 +32,28 @@ const populateListing = (query) =>
         'name email university batchYear whatsappNumber'
     );
 
+const getPagination = (query) => {
+    const requestedPage = Number.parseInt(query.page, 10);
+    const requestedLimit = Number.parseInt(query.limit, 10);
+    const page = Number.isInteger(requestedPage) && requestedPage > 0
+        ? requestedPage
+        : 1;
+    const limit = Number.isInteger(requestedLimit) && requestedLimit > 0
+        ? Math.min(requestedLimit, 100)
+        : 20;
+
+    return { page, limit, skip: (page - 1) * limit };
+};
+
+const getRequestOrigin = (req) =>
+    (process.env.PUBLIC_API_ORIGIN || `${req.protocol}://${req.get('host')}`)
+        .replace(/\/+$/, '');
+
+const extractStoredMediaId = (mediaUrl) => {
+    const match = String(mediaUrl || '').match(/\/api\/media\/([a-f0-9]{24})$/i);
+    return match ? match[1] : '';
+};
+
 const serializeListing = (listing, viewerId) => {
     const returnedListing = listing.toObject();
 
@@ -48,6 +74,7 @@ const getListings = async (req, res, next) => {
             : '';
 
         const filter = {};
+        const { page, limit, skip } = getPagination(req.query);
 
         if (university) {
             if (!UNIVERSITY_OPTIONS.includes(university)) {
@@ -60,13 +87,23 @@ const getListings = async (req, res, next) => {
             filter.universityTag = university;
         }
 
-        const listings = await populateListing(
-            Marketplace.find(filter).sort({ createdAt: -1 })
-        );
+        const [listings, total] = await Promise.all([
+            populateListing(
+                Marketplace.find(filter)
+                    .sort({ createdAt: -1 })
+                    .skip(skip)
+                    .limit(limit)
+            ),
+            Marketplace.countDocuments(filter)
+        ]);
 
         return res.status(200).json({
             success: true,
             count: listings.length,
+            total,
+            page,
+            limit,
+            pages: Math.ceil(total / limit),
             listings: listings.map((listing) =>
                 serializeListing(listing, req.user._id)
             )
@@ -140,24 +177,11 @@ const createListing = async (req, res, next) => {
             });
         }
 
-        const normalizedCoverImage = coverImage
-            ? String(coverImage).trim()
-            : '';
-
-        if (normalizedCoverImage) {
-            try {
-                const imageUrl = new URL(normalizedCoverImage);
-
-                if (!['http:', 'https:'].includes(imageUrl.protocol)) {
-                    throw new Error('Invalid cover image protocol');
-                }
-            } catch (_error) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'coverImage must be a valid HTTP or HTTPS URL'
-                });
-            }
-        }
+        const normalizedCoverImage = await normalizeMediaValue({
+            value: coverImage,
+            kind: 'marketplace',
+            requestOrigin: getRequestOrigin(req)
+        });
 
         const listing = await Marketplace.create({
             title: String(title).trim(),
@@ -214,6 +238,8 @@ const deleteListing = async (req, res, next) => {
         }
 
         await Marketplace.findByIdAndDelete(listing._id);
+        const mediaId = extractStoredMediaId(listing.coverImage);
+        if (mediaId) await deleteMediaById(mediaId);
 
         return res.status(200).json({
             success: true,
