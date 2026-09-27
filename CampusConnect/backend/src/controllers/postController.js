@@ -4,9 +4,15 @@ const { UNIVERSITY_OPTIONS } = require('../constants/universities');
 
 const serializePost = (post, viewerId) => {
   const returnedPost = post.toObject();
-  returnedPost.hasUpvoted = viewerId
-    ? post.upvotedBy.some((id) => id.toString() === viewerId.toString())
-    : false;
+  const viewerStr = viewerId ? viewerId.toString() : '';
+  const userRec = (post.userReactions || []).find(
+    (r) => r.userId && r.userId.toString() === viewerStr
+  );
+  returnedPost.userReaction = userRec ? userRec.reactionType : undefined;
+  if (!returnedPost.reactions) {
+    returnedPost.reactions = { Relatable: 0, Helpful: 0, Support: 0, Vibe: 0 };
+  }
+  delete returnedPost.userReactions;
   delete returnedPost.upvotedBy;
   return returnedPost;
 };
@@ -56,7 +62,7 @@ const getPosts = async (req, res, next) => {
 
 const createPost = async (req, res, next) => {
   try {
-    const { title, content, universityTag, category } = req.body;
+    const { title, content, universityTag, category, mediaUrl } = req.body;
 
     if (!title || !content || !universityTag) {
       return res.status(400).json({
@@ -89,6 +95,9 @@ const createPost = async (req, res, next) => {
       content: String(content).trim(),
       universityTag: normalizedUniversity,
       category: normalizedCategory,
+      mediaUrl: mediaUrl ? String(mediaUrl) : '',
+      reactions: { Relatable: 0, Helpful: 0, Support: 0, Vibe: 0 },
+      userReactions: [],
       authorId: req.user._id
     });
 
@@ -128,8 +137,6 @@ const addComment = async (req, res, next) => {
       });
     }
 
-    // Atomic $push prevents two simultaneous comments from overwriting one
-    // another. authorId is always taken from the verified JWT user.
     const now = new Date();
     const post = await Post.findByIdAndUpdate(
       req.params.id,
@@ -166,26 +173,60 @@ const addComment = async (req, res, next) => {
   } catch (error) { return next(error); }
 };
 
-const toggleUpvote = async (req, res, next) => {
+const toggleReaction = async (req, res, next) => {
   try {
-    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid post ID' });
-    const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
-    const userId = req.user._id.toString();
-    const index = post.upvotedBy.findIndex((id) => id.toString() === userId);
-    let upvoted;
-    if (index >= 0) {
-      post.upvotedBy.splice(index, 1);
-      post.upvotesCount = Math.max(0, post.upvotesCount - 1);
-      upvoted = false;
-    } else {
-      post.upvotedBy.push(req.user._id);
-      post.upvotesCount += 1;
-      upvoted = true;
+    const { reactionType } = req.body;
+    if (!['Relatable', 'Helpful', 'Support', 'Vibe'].includes(reactionType)) {
+      return res.status(400).json({ success: false, message: 'Invalid reaction type' });
     }
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid post ID' });
+    }
+    const post = await Post.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Post not found' });
+    }
+
+    const userIdStr = req.user._id.toString();
+    const userReactions = post.userReactions || [];
+    const existingIndex = userReactions.findIndex(
+      (r) => r.userId && r.userId.toString() === userIdStr
+    );
+
+    if (!post.reactions) {
+      post.reactions = { Relatable: 0, Helpful: 0, Support: 0, Vibe: 0 };
+    }
+
+    let newUserReaction;
+    if (existingIndex >= 0) {
+      const existingType = userReactions[existingIndex].reactionType;
+      post.reactions[existingType] = Math.max(0, (post.reactions[existingType] || 0) - 1);
+
+      if (existingType === reactionType) {
+        userReactions.splice(existingIndex, 1);
+        newUserReaction = undefined;
+      } else {
+        userReactions[existingIndex].reactionType = reactionType;
+        post.reactions[reactionType] = (post.reactions[reactionType] || 0) + 1;
+        newUserReaction = reactionType;
+      }
+    } else {
+      userReactions.push({ userId: req.user._id, reactionType });
+      post.reactions[reactionType] = (post.reactions[reactionType] || 0) + 1;
+      newUserReaction = reactionType;
+    }
+
+    post.userReactions = userReactions;
+    post.markModified('reactions');
+    post.markModified('userReactions');
     await post.save();
-    return res.status(200).json({ success: true, message: upvoted ? 'Post upvoted' : 'Upvote removed', upvoted, upvotesCount: post.upvotesCount });
+
+    return res.status(200).json({
+      success: true,
+      reactions: post.reactions,
+      userReaction: newUserReaction,
+    });
   } catch (error) { return next(error); }
 };
 
-module.exports = { getPosts, createPost, addComment, toggleUpvote };
+module.exports = { getPosts, createPost, addComment, toggleReaction };

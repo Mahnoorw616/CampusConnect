@@ -274,6 +274,7 @@ const normalizePost = (value: unknown): Post => {
       new Date().toISOString()
     ),
     comments,
+    mediaUrl: asString(raw.mediaUrl) || undefined,
     userReaction: raw.userReaction as ReactionType | undefined,
   };
 };
@@ -814,60 +815,156 @@ export const postsService = {
     mediaUrl?: string;
     user: User;
   }): Promise<Post> {
-    await delay(100);
-    const raw = localStorage.getItem(STORAGE_KEYS.POSTS);
-    const posts: Post[] = raw ? (JSON.parse(raw) as Post[]) : INITIAL_POSTS;
+    if (shouldUseMockData()) {
+      await delay(100);
+      const raw = localStorage.getItem(STORAGE_KEYS.POSTS);
+      const posts: Post[] = raw ? (JSON.parse(raw) as Post[]) : INITIAL_POSTS;
 
-    const newPost: Post = {
-      id: `post-${Date.now()}`,
-      authorId: data.user.id,
-      authorName: data.user.name,
-      authorUniversity: data.university ?? data.user.university,
-      authorBatch: data.user.batch,
-      title: data.title.trim(),
-      content: data.content.trim(),
-      category: data.category,
-      reactions: { Relatable: 0, Helpful: 0, Support: 0, Vibe: 0 },
-      commentCount: 0,
-      createdAt: 'Just now',
-      mediaUrl: data.mediaUrl,
-      userReaction: undefined,
-      isSaved: false,
-      comments: [],
-    };
+      const newPost: Post = {
+        id: `post-${Date.now()}`,
+        authorId: data.user.id,
+        authorName: data.user.name,
+        authorUniversity: data.university ?? data.user.university,
+        authorBatch: data.user.batch,
+        title: data.title.trim(),
+        content: data.content.trim(),
+        category: data.category,
+        reactions: { Relatable: 0, Helpful: 0, Support: 0, Vibe: 0 },
+        commentCount: 0,
+        createdAt: 'Just now',
+        mediaUrl: data.mediaUrl,
+        userReaction: undefined,
+        isSaved: false,
+        comments: [],
+      };
 
-    localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify([newPost, ...posts]));
-    return newPost;
+      localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify([newPost, ...posts]));
+      return newPost;
+    }
+
+    try {
+      const result = await apiRequest<{
+        success: boolean;
+        post: ApiRecord;
+      }>('/api/posts', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: data.title.trim(),
+          content: data.content.trim(),
+          category: data.category,
+          universityTag: data.university ?? data.user.university,
+          mediaUrl: data.mediaUrl ?? '',
+        }),
+      });
+
+      return normalizePost(result.post);
+    } catch (error) {
+      if (shouldFallbackToMockData()) {
+        await delay(100);
+        const raw = localStorage.getItem(STORAGE_KEYS.POSTS);
+        const posts: Post[] = raw ? (JSON.parse(raw) as Post[]) : INITIAL_POSTS;
+
+        const newPost: Post = {
+          id: `post-${Date.now()}`,
+          authorId: data.user.id,
+          authorName: data.user.name,
+          authorUniversity: data.university ?? data.user.university,
+          authorBatch: data.user.batch,
+          title: data.title.trim(),
+          content: data.content.trim(),
+          category: data.category,
+          reactions: { Relatable: 0, Helpful: 0, Support: 0, Vibe: 0 },
+          commentCount: 0,
+          createdAt: 'Just now',
+          mediaUrl: data.mediaUrl,
+          userReaction: undefined,
+          isSaved: false,
+          comments: [],
+        };
+
+        localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify([newPost, ...posts]));
+        return newPost;
+      }
+      throw error;
+    }
   },
 
   async toggleReaction(
     postId: string,
-    reactionType: ReactionType
+    reactionType: ReactionType,
+    currentPost?: Post
   ): Promise<{ reactions: Record<ReactionType, number>; userReaction?: ReactionType }> {
+    if (!shouldUseMockData()) {
+      try {
+        const result = await apiRequest<{
+          success: boolean;
+          reactions: Record<ReactionType, number>;
+          userReaction?: ReactionType;
+        }>(`/api/posts/${encodeURIComponent(postId)}/react`, {
+          method: 'POST',
+          body: JSON.stringify({ reactionType }),
+        });
+        return {
+          reactions: result.reactions,
+          userReaction: result.userReaction,
+        };
+      } catch (error) {
+        if (!shouldFallbackToMockData()) {
+          throw error;
+        }
+      }
+    }
+
     await delay(40);
     const raw = localStorage.getItem(STORAGE_KEYS.POSTS);
-    const posts: Post[] = raw ? (JSON.parse(raw) as Post[]) : INITIAL_POSTS;
+    let posts: Post[] = raw ? (JSON.parse(raw) as Post[]) : [];
 
-    let result: { reactions: Record<ReactionType, number>; userReaction?: ReactionType } = {
-      reactions: { Relatable: 0, Helpful: 0, Support: 0, Vibe: 0 },
-      userReaction: undefined,
+    let target = posts.find((p) => p.id === postId);
+    if (!target && currentPost) {
+      target = currentPost;
+      posts = [target, ...posts];
+    }
+
+    const defaultReactions: Record<ReactionType, number> = {
+      Relatable: 0,
+      Helpful: 0,
+      Support: 0,
+      Vibe: 0,
     };
 
-    const updated = posts.map((p) => {
-      if (p.id === postId) {
-        const isSame = p.userReaction === reactionType;
-        const newReactions = { ...p.reactions };
-        // Remove previous reaction count
-        if (p.userReaction) newReactions[p.userReaction] = Math.max(0, newReactions[p.userReaction] - 1);
-        // Add new reaction count (unless toggling off)
-        if (!isSame) newReactions[reactionType] = (newReactions[reactionType] ?? 0) + 1;
-        const newUserReaction = isSame ? undefined : reactionType;
-        result = { reactions: newReactions, userReaction: newUserReaction };
-        return { ...p, reactions: newReactions, userReaction: newUserReaction };
-      }
-      return p;
-    });
-    localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(updated));
+    const targetReactions = target?.reactions || defaultReactions;
+    const targetUserReaction = target?.userReaction;
+
+    const isSame = targetUserReaction === reactionType;
+    const newReactions: Record<ReactionType, number> = {
+      Relatable: targetReactions.Relatable ?? 0,
+      Helpful: targetReactions.Helpful ?? 0,
+      Support: targetReactions.Support ?? 0,
+      Vibe: targetReactions.Vibe ?? 0,
+    };
+
+    // Remove previous reaction count if user had reacted
+    if (targetUserReaction && newReactions[targetUserReaction] !== undefined) {
+      newReactions[targetUserReaction] = Math.max(0, newReactions[targetUserReaction] - 1);
+    }
+
+    // Add new reaction count (unless toggling off)
+    if (!isSame) {
+      newReactions[reactionType] = (newReactions[reactionType] ?? 0) + 1;
+    }
+
+    const newUserReaction = isSame ? undefined : reactionType;
+    const result = { reactions: newReactions, userReaction: newUserReaction };
+
+    // Update in localStorage
+    const updatedPosts = posts.map((p) =>
+      p.id === postId ? { ...p, reactions: newReactions, userReaction: newUserReaction } : p
+    );
+    if (!posts.some((p) => p.id === postId) && currentPost) {
+      updatedPosts.unshift({ ...currentPost, reactions: newReactions, userReaction: newUserReaction });
+    }
+
+    localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(updatedPosts));
     return result;
   },
 

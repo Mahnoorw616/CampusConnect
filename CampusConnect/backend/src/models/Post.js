@@ -18,6 +18,11 @@ const commentSchema = new mongoose.Schema({
   }
 }, { timestamps: true, versionKey: false });
 
+const reactionRecordSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  reactionType: { type: String, required: true, enum: ['Relatable', 'Helpful', 'Support', 'Vibe'] }
+}, { _id: false });
+
 const postSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -57,8 +62,14 @@ const postSchema = new mongoose.Schema({
     default: 'General',
     index: true
   },
-  upvotesCount: { type: Number, default: 0, min: 0 },
-  upvotedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  mediaUrl: { type: String, default: '' },
+  reactions: {
+    Relatable: { type: Number, default: 0, min: 0 },
+    Helpful: { type: Number, default: 0, min: 0 },
+    Support: { type: Number, default: 0, min: 0 },
+    Vibe: { type: Number, default: 0, min: 0 },
+  },
+  userReactions: [reactionRecordSchema],
   comments: [commentSchema]
 }, { timestamps: true, versionKey: false });
 

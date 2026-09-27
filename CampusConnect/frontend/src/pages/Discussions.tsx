@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { postsService } from '../services/api';
-import { Post, Category, CATEGORIES, ReactionType } from '../types';
+import { Post, Category, CATEGORIES, ReactionType, Comment as PostComment } from '../types';
 import { PostCard } from '../components/discussion/PostCard';
 import { UniversityFilter } from '../components/discussion/UniversityFilter';
 import { PostCardSkeleton } from '../components/ui/Skeleton';
@@ -64,8 +64,33 @@ export const Discussions: React.FC = () => {
   }, [fetchPosts]);
 
   const handleReaction = async (postId: string, reactionType: ReactionType) => {
+    const targetPost = posts.find((p) => p.id === postId);
+    if (!targetPost) return;
+
+    // Optimistic instant UI update
+    const isSame = targetPost.userReaction === reactionType;
+    const newReactions = { ...targetPost.reactions };
+
+    if (targetPost.userReaction && newReactions[targetPost.userReaction] !== undefined) {
+      newReactions[targetPost.userReaction] = Math.max(0, newReactions[targetPost.userReaction] - 1);
+    }
+    if (!isSame) {
+      newReactions[reactionType] = (newReactions[reactionType] || 0) + 1;
+    }
+    const newUserReaction = isSame ? undefined : reactionType;
+
+    // ⚡ Instant DOM update (0ms UI latency)
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId
+          ? { ...p, reactions: newReactions, userReaction: newUserReaction }
+          : p
+      )
+    );
+
     try {
-      const result = await postsService.toggleReaction(postId, reactionType);
+      const result = await postsService.toggleReaction(postId, reactionType, targetPost);
+      // Sync with MongoDB response
       setPosts((prev) =>
         prev.map((p) =>
           p.id === postId
@@ -74,6 +99,10 @@ export const Discussions: React.FC = () => {
         )
       );
     } catch {
+      // Revert if API request fails
+      setPosts((prev) =>
+        prev.map((p) => (p.id === postId ? targetPost : p))
+      );
       showToast('Failed to react', 'error');
     }
   };
@@ -92,21 +121,59 @@ export const Discussions: React.FC = () => {
 
   const handleAddComment = async (postId: string, text: string) => {
     if (!user) return;
+
+    const optimisticComment: PostComment = {
+      id: `temp-${Date.now()}`,
+      postId,
+      authorId: user.id,
+      authorName: user.name,
+      authorUniversity: user.university,
+      content: text,
+      createdAt: 'Just now',
+    };
+
+    // ⚡ Instant DOM update (0ms UI latency)
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId
+          ? {
+            ...p,
+            commentCount: p.commentCount + 1,
+            comments: [...(p.comments || []), optimisticComment],
+          }
+          : p
+      )
+    );
+
     try {
-      const comment = await postsService.addComment(postId, text, user);
+      const realComment = await postsService.addComment(postId, text, user);
+      // Replace optimistic comment with confirmed MongoDB comment
       setPosts((prev) =>
         prev.map((p) =>
           p.id === postId
             ? {
               ...p,
-              commentCount: p.commentCount + 1,
-              comments: [...(p.comments || []), comment],
+              comments: (p.comments || []).map((c) =>
+                c.id === optimisticComment.id ? realComment : c
+              ),
             }
             : p
         )
       );
       showToast('Comment added', 'success');
     } catch {
+      // Revert on error
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? {
+              ...p,
+              commentCount: Math.max(0, p.commentCount - 1),
+              comments: (p.comments || []).filter((c) => c.id !== optimisticComment.id),
+            }
+            : p
+        )
+      );
       showToast('Failed to add comment', 'error');
     }
   };

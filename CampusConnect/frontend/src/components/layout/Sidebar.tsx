@@ -40,7 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenCreatePost, onOpenSellMo
   ];
 
   return (
-    <aside className="w-64 shrink-0 hidden lg:flex flex-col justify-between h-screen sticky top-0 border-r border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#101827] p-5 select-none z-20">
+    <aside className="w-64 shrink-0 hidden lg:flex flex-col justify-between h-screen sticky top-0 border-r border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#1E293B] p-5 select-none z-20">
       <div>
         {/* Brand Header */}
         <div className="flex items-center gap-2.5 px-2 mb-7">

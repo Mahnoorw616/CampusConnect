@@ -23,7 +23,7 @@ export const BrandText: React.FC<{ size?: 'sm' | 'md' | 'lg' | 'xl'; className?:
   return (
     <span className={`${textSizes[size]} font-bold tracking-tight font-sans ${className}`}>
       <span className="text-[#152338] dark:text-slate-100">Campus</span>
-      <span className="text-[#387652]">Crew</span>
+      <span className="text-[#387652] dark:text-[#52B788]">Crew</span>
     </span>
   );
 };
@@ -48,12 +48,14 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   return (
     <div className={`inline-flex items-center gap-2.5 ${className}`}>
       {showIcon && (
-        <img
-          src={feedLogo}
-          alt="CampusCrew Logo"
-          style={{ width: px, height: px, minWidth: px, minHeight: px }}
-          className={`object-contain rounded-xl shadow-xs transition-transform hover:scale-105 shrink-0 ${iconClassName}`}
-        />
+        <div className="relative rounded-2xl transition-all duration-300 p-1.5 bg-white border border-slate-200/80 shadow-xs dark:bg-white dark:ring-2 dark:ring-[#52B788] dark:shadow-[0_0_14px_rgba(82,183,136,0.4)] shrink-0 flex items-center justify-center">
+          <img
+            src={feedLogo}
+            alt="CampusCrew Logo"
+            style={{ width: px, height: px, minWidth: px, minHeight: px }}
+            className={`object-contain rounded-xl shadow-xs transition-transform hover:scale-105 shrink-0 ${iconClassName}`}
+          />
+        </div>
       )}
       <BrandText size={size} />
     </div>
