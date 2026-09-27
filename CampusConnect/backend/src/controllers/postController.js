@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const Notification = require('../models/Notifications');
 const Post = require('../models/Post');
 const { UNIVERSITY_OPTIONS } = require('../constants/universities');
 
@@ -37,6 +38,16 @@ const populatePost = (query) =>
     .populate('authorId', 'name university batchYear bio avatar')
     .populate('comments.authorId', 'name university batchYear bio avatar')
     .populate('comments.replies.authorId', 'name university batchYear bio avatar');
+
+// Notifications should never turn a successfully saved interaction into an error.
+const notify = async (recipient, sender, type, message, post) => {
+  if (!recipient || recipient.toString() === sender.toString()) return;
+  try {
+    await Notification.create({ recipient, sender, type, message, post });
+  } catch (error) {
+    console.error('Could not create notification:', error);
+  }
+};
 
 const getPosts = async (req, res, next) => {
   try {
@@ -238,6 +249,7 @@ const addComment = async (req, res, next) => {
       });
     }
 
+    await notify(post.authorId, req.user._id, 'COMMENT', `${req.user.name} commented on your discussion: ${post.title}`, post._id);
     const populatedPost = await populatePost(Post.findById(post._id));
 
     return res.status(201).json({
@@ -405,6 +417,7 @@ const addCommentReply = async (req, res, next) => {
     });
 
     await post.save();
+    await notify(comment.authorId, req.user._id, 'COMMENT', `${req.user.name} replied to your comment on: ${post.title}`, post._id);
     const populatedPost = await populatePost(Post.findById(post._id));
 
     return res.status(201).json({
@@ -462,6 +475,9 @@ const toggleReaction = async (req, res, next) => {
     post.markModified('reactions');
     post.markModified('userReactions');
     await post.save();
+    if (newUserReaction && existingIndex < 0) {
+      await notify(post.authorId, req.user._id, 'LIKE', `${req.user.name} reacted to your discussion: ${post.title}`, post._id);
+    }
 
     return res.status(200).json({
       success: true,

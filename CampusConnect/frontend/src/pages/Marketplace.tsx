@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { marketplaceService } from '../services/api';
@@ -19,6 +19,9 @@ export const Marketplace: React.FC = () => {
   const { user, selectedUniversity, setSelectedUniversity } = useAuth();
   const { showToast } = useToast();
   const { onOpenSellModal, onOpenListingDetail } = useOutletContext<OutletContextType>();
+  const [searchParams] = useSearchParams();
+  const linkedListingId = searchParams.get('listing');
+  const openedListingId = useRef<string | null>(null);
 
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [priceFilter, setPriceFilter] = useState<'all' | 'free' | 'paid'>('all');
@@ -54,6 +57,23 @@ export const Marketplace: React.FC = () => {
   useEffect(() => {
     fetchListings();
   }, [fetchListings]);
+
+  useEffect(() => {
+    if (linkedListingId) {
+      setSelectedUniversity('All');
+      setPriceFilter('all');
+      setCourseQuery('');
+    }
+  }, [linkedListingId, setSelectedUniversity]);
+
+  useEffect(() => {
+    if (isLoading || !linkedListingId || openedListingId.current === linkedListingId) return;
+    const listing = items.find((item) => item.id === linkedListingId);
+    if (listing) {
+      openedListingId.current = linkedListingId;
+      onOpenListingDetail(listing);
+    }
+  }, [linkedListingId, isLoading, items, onOpenListingDetail]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {

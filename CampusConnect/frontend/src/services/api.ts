@@ -1,4 +1,4 @@
-import type { Post, MarketplaceItem, User, University, Category, Comment, CommentReply, ReactionType } from '../types';
+import type { Post, MarketplaceItem, User, University, Category, Comment, CommentReply, ReactionType, AppNotification } from '../types';
 import { INITIAL_POSTS, INITIAL_MARKETPLACE, INITIAL_USER } from './mockData';
 
 type ApiRecord = Record<string, unknown>;
@@ -576,6 +576,46 @@ export const authService = {
   async logout() {
     localStorage.removeItem(STORAGE_KEYS.USER);
     localStorage.removeItem(STORAGE_KEYS.TOKEN);
+  },
+};
+
+// Demo sessions have no backend identity, so keep their inbox empty rather than
+// issuing requests with a token the server cannot authenticate.
+const isDemoSession = () =>
+  DATA_MODE === 'mock' || localStorage.getItem(STORAGE_KEYS.TOKEN)?.startsWith('demo_offline_token_');
+
+const normalizeNotification = (value: unknown): AppNotification => {
+  const raw = asRecord(value);
+  const sender = asRecord(raw.sender);
+  return {
+    id: getObjectId(raw),
+    type: (['COMMENT', 'LIKE', 'MARKETPLACE', 'SYSTEM'].includes(String(raw.type))
+      ? raw.type : 'SYSTEM') as AppNotification['type'],
+    message: asString(raw.message),
+    senderName: asString(sender.name),
+    postId: raw.post ? getObjectId(raw.post) : undefined,
+    marketplaceId: raw.marketplace ? getObjectId(raw.marketplace) : undefined,
+    isRead: Boolean(raw.isRead),
+    createdAt: asString(raw.createdAt),
+  };
+};
+
+export const notificationsService = {
+  async getNotifications(): Promise<{ notifications: AppNotification[]; unreadCount: number }> {
+    if (isDemoSession()) return { notifications: [], unreadCount: 0 };
+    const data = await apiRequest<{ notifications: unknown[]; unreadCount: number }>('/api/notifications');
+    return {
+      notifications: data.notifications.map(normalizeNotification),
+      unreadCount: data.unreadCount,
+    };
+  },
+  async markAsRead(id: string): Promise<void> {
+    if (isDemoSession()) return;
+    await apiRequest(`/api/notifications/${encodeURIComponent(id)}/read`, { method: 'PATCH' });
+  },
+  async markAllAsRead(): Promise<void> {
+    if (isDemoSession()) return;
+    await apiRequest('/api/notifications/read-all', { method: 'PATCH' });
   },
 };
 

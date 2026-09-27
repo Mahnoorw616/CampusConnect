@@ -86,6 +86,17 @@ export interface MarketplaceItem {
   createdAt: string;
 }
 
+export interface AppNotification {
+  id: string;
+  type: 'COMMENT' | 'LIKE' | 'MARKETPLACE' | 'SYSTEM';
+  message: string;
+  senderName?: string;
+  postId?: string;
+  marketplaceId?: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export interface FilterState {
   university: University;
   category: Category;

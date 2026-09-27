@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { postsService } from '../services/api';
@@ -19,6 +19,8 @@ export const Discussions: React.FC = () => {
   const { user, selectedUniversity, setSelectedUniversity } = useAuth();
   const { showToast } = useToast();
   const { onOpenCreatePost } = useOutletContext<OutletContextType>();
+  const [searchParams] = useSearchParams();
+  const linkedPostId = searchParams.get('post');
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<Category>('All');
@@ -52,6 +54,18 @@ export const Discussions: React.FC = () => {
   useEffect(() => {
     fetchPosts();
   }, [fetchPosts]);
+
+  useEffect(() => {
+    if (!linkedPostId || isLoading) return;
+    document.getElementById(`post-${linkedPostId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [linkedPostId, posts, isLoading]);
+
+  useEffect(() => {
+    if (linkedPostId) {
+      setSelectedUniversity('All');
+      setSelectedCategory('All');
+    }
+  }, [linkedPostId, setSelectedUniversity]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -321,8 +335,8 @@ export const Discussions: React.FC = () => {
       ) : (
         <div className="space-y-3.5">
           {posts.map((post) => (
+            <div key={post.id} id={`post-${post.id}`} className={linkedPostId === post.id ? 'scroll-mt-24 rounded-xl ring-2 ring-sky-400/60' : 'scroll-mt-24'}>
             <PostCard
-              key={post.id}
               post={post}
               currentUser={user}
               onReact={handleReaction}
@@ -336,6 +350,7 @@ export const Discussions: React.FC = () => {
               onCommentReply={handleCommentReply}
               onViewProfile={(profile) => setSelectedProfile(profile)}
             />
+            </div>
           ))}
         </div>
       )}

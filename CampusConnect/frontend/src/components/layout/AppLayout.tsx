@@ -1,20 +1,54 @@
-import React, { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { RightSidebar } from './RightSidebar';
 import { Navbar } from './Navbar';
 import { MobileNav } from './MobileNav';
+import { NotificationPanel } from './NotificationPanel';
 import { CreatePostModal } from '../discussion/CreatePostModal';
 import { SellListingModal } from '../marketplace/SellListingModal';
 import { ListingDetailModal } from '../marketplace/ListingDetailModal';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { postsService, marketplaceService } from '../../services/api';
-import { Post, MarketplaceItem, Category, University } from '../../types';
+import { postsService, marketplaceService, notificationsService } from '../../services/api';
+import { Post, MarketplaceItem, Category, University, AppNotification } from '../../types';
 
 export const AppLayout: React.FC = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const location = useLocation();
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
+  const [notificationsError, setNotificationsError] = useState(false);
+
+  const refreshNotifications = useCallback(async (showLoader = false) => {
+    if (showLoader) setNotificationsLoading(true);
+    try {
+      const data = await notificationsService.getNotifications();
+      setNotifications(data.notifications);
+      setUnreadCount(data.unreadCount);
+      setNotificationsError(false);
+    } catch {
+      setNotificationsError(true);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshNotifications(true);
+    const interval = window.setInterval(() => void refreshNotifications(), 30000);
+    return () => window.clearInterval(interval);
+  }, [refreshNotifications]);
+
+  useEffect(() => { setNotificationsOpen(false); }, [location.pathname, location.search]);
+
+  const openNotifications = () => {
+    setNotificationsOpen(true);
+    void refreshNotifications();
+  };
 
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
   const [isSellModalOpen, setIsSellModalOpen] = useState(false);
@@ -92,12 +126,14 @@ export const AppLayout: React.FC = () => {
     <div className="min-h-screen bg-[#F7F8FA] dark:bg-[#0B111E] text-[#18202B] dark:text-[#E2E8F0] flex flex-col antialiased">
       {/* Mobile Top App Bar */}
       <div className="lg:hidden">
-        <Navbar onOpenCreatePost={() => setIsCreatePostOpen(true)} />
+        <Navbar onOpenCreatePost={() => setIsCreatePostOpen(true)} onOpenNotifications={openNotifications} unreadCount={unreadCount} />
       </div>
 
       <div className="flex-1 flex max-w-7xl w-full mx-auto justify-center">
         {/* Left Desktop Sidebar */}
         <Sidebar
+          onOpenNotifications={openNotifications}
+          unreadCount={unreadCount}
           onOpenCreatePost={() => setIsCreatePostOpen(true)}
           onOpenSellModal={() => setIsSellModalOpen(true)}
         />
@@ -123,6 +159,16 @@ export const AppLayout: React.FC = () => {
 
       {/* Mobile Fixed Bottom Navigation */}
       <MobileNav />
+      <NotificationPanel
+        isOpen={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
+        notifications={notifications}
+        unreadCount={unreadCount}
+        isLoading={notificationsLoading}
+        error={notificationsError}
+        onRefresh={() => refreshNotifications(true)}
+        onUpdate={(items, count) => { setNotifications(items); setUnreadCount(count); }}
+      />
 
       {/* Global Modals */}
       {user && (

@@ -4,14 +4,16 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { BrandLogo } from '../ui/BrandLogo';
 import { Avatar } from '../ui/Avatar';
-import { Moon, Sun, Plus } from 'lucide-react';
+import { Moon, Sun, Plus, Bell } from 'lucide-react';
 
 interface NavbarProps {
   onOpenCreatePost?: () => void;
+  onOpenNotifications?: () => void;
+  unreadCount?: number;
   pageTitle?: string;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenCreatePost, pageTitle }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onOpenCreatePost, onOpenNotifications, unreadCount = 0 }) => {
   const { user, selectedUniversity } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
@@ -49,6 +51,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCreatePost, pageTitle }) =
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Ask Campus</span>
+          </button>
+        )}
+
+        {user && onOpenNotifications && (
+          <button onClick={onOpenNotifications} aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`} className="relative flex items-center justify-center min-w-[40px] min-h-[40px] rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white transition-colors">
+            <Bell className="w-5 h-5" />
+            {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold">{unreadCount > 99 ? '99+' : unreadCount}</span>}
           </button>
         )}
 

@@ -14,15 +14,18 @@ import {
   Moon,
   LogOut,
   PlusCircle,
+  Bell,
 } from 'lucide-react';
 import { UNIVERSITIES, University } from '../../types';
 
 interface SidebarProps {
   onOpenCreatePost?: () => void;
   onOpenSellModal?: () => void;
+  onOpenNotifications?: () => void;
+  unreadCount?: number;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ onOpenCreatePost, onOpenSellModal }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onOpenCreatePost, onOpenSellModal, onOpenNotifications, unreadCount = 0 }) => {
   const { user, logout, selectedUniversity, setSelectedUniversity } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -76,6 +79,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenCreatePost, onOpenSellMo
             );
           })}
         </nav>
+        {onOpenNotifications && (
+          <button onClick={onOpenNotifications} className="mt-1 w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200 transition-colors min-h-[42px]" aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}>
+            <span className="flex items-center gap-3"><Bell className="w-4 h-4" />Notifications</span>
+            {unreadCount > 0 && <span className="min-w-5 h-5 px-1.5 flex items-center justify-center rounded-full bg-[#17243A] dark:bg-slate-200 text-white dark:text-slate-900 text-[10px] font-bold">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+          </button>
+        )}
 
         {/* Action Buttons */}
         <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800/80 space-y-2">
