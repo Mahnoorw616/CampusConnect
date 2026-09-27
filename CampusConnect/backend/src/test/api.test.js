@@ -57,7 +57,7 @@ test('registers a user without returning the password', async () => {
             name: 'Backend QA User',
             email: testEmail,
             password: 'QaPassword123!',
-            university: 'FAST',
+            university: 'UOG',
             batchYear: 2026,
             whatsappNumber: '03001234567'
         });
@@ -82,7 +82,7 @@ test('creates and paginates a post', async () => {
         .send({
             title: 'Automated API test post',
             content: 'Created by the backend functional test suite.',
-            universityTag: 'FAST',
+            universityTag: 'UOG',
             category: 'General'
         });
 

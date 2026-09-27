@@ -85,15 +85,17 @@ export const Landing: React.FC = () => {
         {/* Campuses Tagline */}
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500 dark:text-slate-400">
           <span>Active Networks:</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200">FAST Islamabad</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200">UOG Islamabad</span>
           <span>·</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200">NUST (SEECS / SMME)</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200">ILM (SEECS / SMME)</span>
           <span>·</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200">COMSATS Park Road</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200">Superior Park Road</span>
           <span>·</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200">Bahria University</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200">UOC University</span>
           <span>·</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200">Air University</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200">Swedish University</span>
+          <span>·</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200">UOP University</span>
         </div>
       </section>
 
@@ -117,7 +119,7 @@ export const Landing: React.FC = () => {
                   Ahmed Khan
                 </div>
                 <div className="text-[11px] text-slate-400">
-                  FAST Islamabad · Batch 2026
+                  UOG Islamabad · Batch 2026
                 </div>
               </div>
             </div>

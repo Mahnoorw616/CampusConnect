@@ -8,6 +8,16 @@ All protected routes require:
 Authorization: Bearer YOUR_JWT_TOKEN
 ```
 
+Supported university values:
+
+- `UOG`
+- `ILM`
+- `Superior`
+- `UOC`
+- `Swedish`
+- `UOP`
+- `Other`
+
 ## Public routes
 
 ### Health
@@ -29,7 +39,7 @@ Body:
   "name": "Ayesha Khan",
   "email": "ayesha@example.com",
   "password": "Campus123!",
-  "university": "FAST",
+  "university": "UOG",
   "batchYear": 2028,
   "whatsappNumber": "+923001234567"
 }
@@ -55,7 +65,7 @@ Body:
 ### List posts
 
 ```text
-GET /posts?page=1&limit=20&uni=FAST&category=General
+GET /posts?page=1&limit=20&uni=UOG&category=General
 ```
 
 Supported categories:
@@ -78,7 +88,7 @@ Body:
 {
   "title": "Which CS electives are best?",
   "content": "Please share your experience.",
-  "universityTag": "FAST",
+  "universityTag": "UOG",
   "category": "General",
   "mediaUrl": ""
 }
@@ -200,7 +210,7 @@ Comments support up to 50 replies and posts support up to 500 comments.
 ### List marketplace items
 
 ```text
-GET /marketplace?page=1&limit=20&uni=FAST
+GET /marketplace?page=1&limit=20&uni=UOG
 ```
 
 The response includes pagination metadata.

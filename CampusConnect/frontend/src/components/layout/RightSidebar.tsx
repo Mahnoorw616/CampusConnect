@@ -34,7 +34,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
         <div className="text-[11px] text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800/80 pt-2 flex items-center justify-between">
           <span>Active Campuses</span>
           <span className="font-semibold text-slate-800 dark:text-slate-200">
-            FAST · NUST · COMSATS
+            UOG · ILM · Superior · UOC · Swedish · UOP
           </span>
         </div>
       </div>
@@ -121,7 +121,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   {p.title}
                 </div>
                 <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-2">
-                <span>
+                  <span>
                     {Object.values(p.reactions ?? {}).reduce((a: number, b) => a + (b as number), 0)} reactions
                   </span>
                   <span>·</span>

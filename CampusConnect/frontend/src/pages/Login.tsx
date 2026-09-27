@@ -53,7 +53,7 @@ export const Login: React.FC = () => {
             Sign in to your campus community
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Connect with students from FAST, NUST, COMSATS, Bahria, and Air.
+            Connect with students from UOG, ILM, Superior, UOC, Swedish, and UOP.
           </p>
         </div>
 
@@ -75,7 +75,7 @@ export const Login: React.FC = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="e.g. yourname@isb.nu.edu.pk"
+                placeholder="e.g. yourname@uog.edu.pk"
                 className="w-full text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#17243A]"
               />
             </div>

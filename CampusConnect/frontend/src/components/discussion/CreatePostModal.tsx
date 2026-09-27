@@ -25,7 +25,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [content, setContent] = useState('');
   const [category, setCategory] = useState<Exclude<Category, 'All'>>('General');
   const [university, setUniversity] = useState<Exclude<University, 'All'>>(
-    currentUser.university || 'FAST'
+    currentUser.university || 'UOG'
   );
   const [mediaUrl, setMediaUrl] = useState<string | undefined>(undefined);
   const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);

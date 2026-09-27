@@ -77,7 +77,7 @@ const postSchema = new mongoose.Schema({
     required: [true, 'University tag is required'],
     enum: {
       values: UNIVERSITY_OPTIONS,
-      message: 'University tag must be one of: NUST, FAST, COMSATS, Bahria, Air, or Other'
+      message: 'University tag must be one of: UOG, ILM, Superior, UOC, Swedish, UOP, or Other'
     },
     index: true
   },

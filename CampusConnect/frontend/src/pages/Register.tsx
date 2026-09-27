@@ -15,7 +15,7 @@ export const Register: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [university, setUniversity] = useState<Exclude<University, 'All'>>('FAST');
+  const [university, setUniversity] = useState<Exclude<University, 'All'>>('UOG');
   const [batch, setBatch] = useState('Batch 2026');
   const [whatsapp, setWhatsapp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -28,7 +28,7 @@ export const Register: React.FC = () => {
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(email.trim())) {
-      setError('Please provide a complete and valid email address, for example ahmedkhan@isb.nu.edu.pk.');
+      setError('Please provide a complete and valid email address, for example student@uog.edu.pk.');
       return;
     }
     if (password.length < 8) {
@@ -119,7 +119,7 @@ export const Register: React.FC = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="e.g. rollno@isb.nu.edu.pk or student@nust.edu.pk"
+                placeholder="e.g. student@uog.edu.pk or student@ilm.edu.pk"
                 className="w-full text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#17243A]"
               />
             </div>

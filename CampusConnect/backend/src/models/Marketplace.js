@@ -36,7 +36,7 @@ const marketplaceSchema = new mongoose.Schema({
         enum: {
             values: UNIVERSITY_OPTIONS,
             message:
-                'University tag must be one of: NUST, FAST, COMSATS, Bahria, Air, or Other'
+                'University tag must be one of: UOG, ILM, Superior, UOC, Swedish, UOP, or Other'
         },
         index: true
     },

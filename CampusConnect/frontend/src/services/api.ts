@@ -86,11 +86,12 @@ const CATEGORY_VALUES: Exclude<Category, 'All'>[] = [
 ];
 
 const UNIVERSITY_VALUES: Exclude<University, 'All'>[] = [
-  'FAST',
-  'NUST',
-  'COMSATS',
-  'Bahria',
-  'Air',
+  'UOG',
+  'ILM',
+  'Superior',
+  'UOC',
+  'Swedish',
+  'UOP',
   'Other',
 ];
 

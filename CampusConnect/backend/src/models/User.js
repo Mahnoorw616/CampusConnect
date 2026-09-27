@@ -33,7 +33,7 @@ const userSchema = new mongoose.Schema({
     required: [true, 'University is required'],
     enum: {
       values: UNIVERSITY_OPTIONS,
-      message: 'University must be one of: NUST, FAST, COMSATS, Bahria, Air, or Other'
+      message: 'University must be one of: UOG, ILM, Superior, UOC, Swedish, UOP, or Other'
     }
   },
   batchYear: {

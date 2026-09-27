@@ -1,13 +1,54 @@
-export type University = 'All' | 'FAST' | 'NUST' | 'COMSATS' | 'Bahria' | 'Air' | 'Other';
+export type University =
+  | 'All'
+  | 'UOG'
+  | 'ILM'
+  | 'Superior'
+  | 'UOC'
+  | 'Swedish'
+  | 'UOP'
+  | 'Other';
 
-export const UNIVERSITIES: University[] = ['All', 'FAST', 'NUST', 'COMSATS', 'Bahria', 'Air', 'Other'];
-export const REGISTER_UNIVERSITIES: Exclude<University, 'All'>[] = ['FAST', 'NUST', 'COMSATS', 'Bahria', 'Air', 'Other'];
+export const UNIVERSITIES: University[] = [
+  'All',
+  'UOG',
+  'ILM',
+  'Superior',
+  'UOC',
+  'Swedish',
+  'UOP',
+  'Other',
+];
+
+export const REGISTER_UNIVERSITIES: Exclude<University, 'All'>[] = [
+  'UOG',
+  'ILM',
+  'Superior',
+  'UOC',
+  'Swedish',
+  'UOP',
+  'Other',
+];
 
 export type Category = 'All' | 'Admissions' | 'Course Review' | 'General';
-export const CATEGORIES: Category[] = ['All', 'Admissions', 'Course Review', 'General'];
-export const POST_CATEGORIES: Exclude<Category, 'All'>[] = ['Admissions', 'Course Review', 'General'];
 
-export type ReactionType = 'Relatable' | 'Helpful' | 'Support' | 'Vibe';
+export const CATEGORIES: Category[] = [
+  'All',
+  'Admissions',
+  'Course Review',
+  'General',
+];
+
+export const POST_CATEGORIES: Exclude<Category, 'All'>[] = [
+  'Admissions',
+  'Course Review',
+  'General',
+];
+
+export type ReactionType =
+  | 'Relatable'
+  | 'Helpful'
+  | 'Support'
+  | 'Vibe';
 
 export interface User {
   id: string;

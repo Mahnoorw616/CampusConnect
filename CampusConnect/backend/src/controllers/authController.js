@@ -34,7 +34,7 @@ const register = async (req, res, next) => {
     if (!validateEmail(email)) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide a complete and valid email address, for example ahmedkhan@isb.nu.edu.pk'
+        message: 'Please provide a complete and valid email address, for example student@uog.edu.pk'
       });
     }
 
