@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { Post, User, ReactionType } from '../../types';
+import { Post, User, ReactionType, PublicProfile } from '../../types';
 import { Avatar } from '../ui/Avatar';
 import { Badge } from '../ui/Badge';
 import { CommentSection } from './CommentSection';
-import { MessageSquare, Bookmark } from 'lucide-react';
+import { MessageSquare, Bookmark, MoreVertical, Edit2, Trash2 } from 'lucide-react';
 
 // ─── Reaction definitions ─────────────────────────────────────────────────────
 const REACTIONS: { type: ReactionType; emoji: string; label: string; color: string }[] = [
@@ -13,12 +13,10 @@ const REACTIONS: { type: ReactionType; emoji: string; label: string; color: stri
   { type: 'Vibe',      emoji: '🔥', label: 'Vibe',      color: 'text-rose-500'   },
 ];
 
-// Total reactions count helper
 function totalReactions(reactions: Record<ReactionType, number>): number {
   return Object.values(reactions).reduce((a, b) => a + b, 0);
 }
 
-// ─── Animated Reaction Icon ───────────────────────────────────────────────────
 const ReactionIcon: React.FC<{
   emoji: string;
   label: string;
@@ -47,29 +45,46 @@ const ReactionIcon: React.FC<{
   </button>
 );
 
-// ─── PostCard Props ───────────────────────────────────────────────────────────
 interface PostCardProps {
   post: Post;
   currentUser: User | null;
   onReact: (postId: string, reactionType: ReactionType) => Promise<void>;
   onSave: (postId: string) => Promise<void>;
   onAddComment: (postId: string, text: string) => Promise<void>;
+  onEditPost?: (postId: string, data: { title?: string; content?: string }) => Promise<void>;
+  onDeletePost?: (postId: string) => Promise<void>;
+  onEditComment?: (postId: string, commentId: string, text: string) => Promise<void>;
+  onDeleteComment?: (postId: string, commentId: string) => Promise<void>;
+  onCommentReaction?: (postId: string, commentId: string, reactionType: ReactionType) => Promise<void>;
+  onCommentReply?: (postId: string, commentId: string, text: string) => Promise<void>;
+  onViewProfile?: (profile: PublicProfile) => void;
 }
 
-// ─── PostCard Component ───────────────────────────────────────────────────────
 export const PostCard: React.FC<PostCardProps> = ({
   post,
   currentUser,
   onReact,
   onSave,
   onAddComment,
+  onEditPost,
+  onDeletePost,
+  onEditComment,
+  onDeleteComment,
+  onCommentReaction,
+  onCommentReply,
+  onViewProfile,
 }) => {
   const [showComments, setShowComments] = useState(false);
   const [showReactionMenu, setShowReactionMenu] = useState(false);
+  const [showPostMenu, setShowPostMenu] = useState(false);
+  const [isEditingPost, setIsEditingPost] = useState(false);
+  const [editTitle, setEditTitle] = useState(post.title);
+  const [editContent, setEditContent] = useState(post.content);
   const [isSaving, setIsSaving] = useState(false);
   const [isReacting, setIsReacting] = useState(false);
   const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const isPostAuthor = currentUser && (currentUser.id === post.authorId || (post as any).authorId?._id === currentUser.id);
   const total = totalReactions(post.reactions);
   const userReaction = post.userReaction;
   const activeReactionDef = userReaction ? REACTIONS.find((r) => r.type === userReaction) : null;
@@ -88,6 +103,17 @@ export const PostCard: React.FC<PostCardProps> = ({
     try { await onReact(post.id, reactionType); } finally { setIsReacting(false); }
   };
 
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onEditPost || !editTitle.trim() || !editContent.trim()) return;
+    try {
+      await onEditPost(post.id, { title: editTitle, content: editContent });
+      setIsEditingPost(false);
+    } catch {
+      /* handled in parent */
+    }
+  };
+
   const openMenu = () => {
     if (hideTimeout.current) clearTimeout(hideTimeout.current);
     setShowReactionMenu(true);
@@ -99,7 +125,6 @@ export const PostCard: React.FC<PostCardProps> = ({
 
   return (
     <>
-      {/* Keyframe style injected once */}
       <style>{`
         @keyframes reaction-bounce {
           0%   { transform: scale(1); }
@@ -119,11 +144,33 @@ export const PostCard: React.FC<PostCardProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <Avatar name={post.authorName} size="md" />
+            <button
+              onClick={() =>
+                onViewProfile?.({
+                  id: post.authorId,
+                  name: post.authorName,
+                  university: post.authorUniversity,
+                  batch: post.authorBatch,
+                })
+              }
+              className="hover:opacity-80 transition-opacity shrink-0 text-left"
+            >
+              <Avatar name={post.authorName} size="md" />
+            </button>
             <div className="min-w-0">
-              <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate leading-tight">
+              <button
+                onClick={() =>
+                  onViewProfile?.({
+                    id: post.authorId,
+                    name: post.authorName,
+                    university: post.authorUniversity,
+                    batch: post.authorBatch,
+                  })
+                }
+                className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate leading-tight hover:underline text-left block"
+              >
                 {post.authorName}
-              </h4>
+              </button>
               <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 truncate">
                 <span className="font-medium text-[#17243A] dark:text-slate-300">{post.authorUniversity}</span>
                 <span>·</span>
@@ -133,6 +180,7 @@ export const PostCard: React.FC<PostCardProps> = ({
               </div>
             </div>
           </div>
+
           <div className="shrink-0 flex items-center gap-1.5">
             <Badge variant="category">{post.category}</Badge>
             <button
@@ -143,16 +191,84 @@ export const PostCard: React.FC<PostCardProps> = ({
             >
               <Bookmark className={`w-4 h-4 ${post.isSaved ? 'fill-current' : ''}`} />
             </button>
+
+            {/* Author Post Options Menu */}
+            {isPostAuthor && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowPostMenu((prev) => !prev)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+                {showPostMenu && (
+                  <div className="absolute right-0 top-8 z-30 w-32 bg-white dark:bg-dark-card border border-slate-200 dark:border-dark-border rounded-xl shadow-lg py-1 text-xs">
+                    <button
+                      onClick={() => {
+                        setIsEditingPost(true);
+                        setShowPostMenu(false);
+                      }}
+                      className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" /> Edit Post
+                    </button>
+                    <button
+                      onClick={() => {
+                        onDeletePost?.(post.id);
+                        setShowPostMenu(false);
+                      }}
+                      className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400 font-medium"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Delete Post
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Body */}
-        <h3 className="text-base sm:text-[17px] font-semibold text-slate-900 dark:text-slate-100 mb-2 leading-snug tracking-tight">
-          {post.title}
-        </h3>
-        <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-4 whitespace-pre-wrap break-words">
-          {post.content}
-        </p>
+        {/* Post Edit Form / Display */}
+        {isEditingPost ? (
+          <form onSubmit={handleEditSubmit} className="space-y-3 mb-4 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700">
+            <input
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="w-full text-sm font-semibold p-2 bg-white dark:bg-dark-bg border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+            />
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              rows={3}
+              className="w-full text-sm p-2 bg-white dark:bg-dark-bg border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsEditingPost(false)}
+                className="px-3 py-1.5 text-xs bg-slate-200 dark:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-3 py-1.5 text-xs bg-primary-600 text-white rounded-lg font-medium"
+              >
+                Save Changes
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <h3 className="text-base sm:text-[17px] font-semibold text-slate-900 dark:text-slate-100 mb-2 leading-snug tracking-tight">
+              {post.title}
+            </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-4 whitespace-pre-wrap break-words">
+              {post.content}
+            </p>
+          </>
+        )}
 
         {/* Attached Media / Picture */}
         {post.mediaUrl && (
@@ -201,7 +317,7 @@ export const PostCard: React.FC<PostCardProps> = ({
               <button
                 onClick={() => {
                   if (userReaction) {
-                    handleReact(userReaction); // toggle off
+                    handleReact(userReaction);
                   } else {
                     setShowReactionMenu((v) => !v);
                   }
@@ -269,13 +385,18 @@ export const PostCard: React.FC<PostCardProps> = ({
           </span>
         </div>
 
-        {/* Comments */}
+        {/* Comments Section */}
         {showComments && (
           <CommentSection
             comments={post.comments || []}
             postId={post.id}
             currentUser={currentUser}
             onAddComment={onAddComment}
+            onEditComment={onEditComment}
+            onDeleteComment={onDeleteComment}
+            onCommentReaction={onCommentReaction}
+            onCommentReply={onCommentReply}
+            onViewProfile={onViewProfile}
           />
         )}
       </article>

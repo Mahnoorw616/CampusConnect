@@ -1,6 +1,26 @@
 const mongoose = require('mongoose');
 const { UNIVERSITY_OPTIONS } = require('../constants/universities');
 
+const reactionRecordSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  reactionType: { type: String, required: true, enum: ['Relatable', 'Helpful', 'Support', 'Vibe'] }
+}, { _id: false });
+
+const replySchema = new mongoose.Schema({
+  text: {
+    type: String,
+    required: [true, 'Reply text is required'],
+    trim: true,
+    minlength: [1, 'Reply cannot be empty'],
+    maxlength: [1000, 'Reply cannot exceed 1000 characters']
+  },
+  authorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, 'Reply author is required']
+  }
+}, { timestamps: true, versionKey: false });
+
 const commentSchema = new mongoose.Schema({
   text: {
     type: String,
@@ -9,19 +29,21 @@ const commentSchema = new mongoose.Schema({
     minlength: [1, 'Comment cannot be empty'],
     maxlength: [1000, 'Comment cannot exceed 1000 characters']
   },
-  // Every comment is permanently linked to the MongoDB User document.
   authorId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: [true, 'Comment author is required'],
     index: true
-  }
+  },
+  reactions: {
+    Relatable: { type: Number, default: 0, min: 0 },
+    Helpful: { type: Number, default: 0, min: 0 },
+    Support: { type: Number, default: 0, min: 0 },
+    Vibe: { type: Number, default: 0, min: 0 },
+  },
+  userReactions: [reactionRecordSchema],
+  replies: [replySchema]
 }, { timestamps: true, versionKey: false });
-
-const reactionRecordSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  reactionType: { type: String, required: true, enum: ['Relatable', 'Helpful', 'Support', 'Vibe'] }
-}, { _id: false });
 
 const postSchema = new mongoose.Schema({
   title: {

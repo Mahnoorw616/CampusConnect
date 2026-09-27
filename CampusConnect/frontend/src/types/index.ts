@@ -20,6 +20,15 @@ export interface User {
   createdAt: string;
 }
 
+export interface CommentReply {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorUniversity: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface Comment {
   id: string;
   postId: string;
@@ -28,6 +37,19 @@ export interface Comment {
   authorUniversity: string;
   content: string;
   createdAt: string;
+  reactions?: Record<ReactionType, number>;
+  userReaction?: ReactionType;
+  replies?: CommentReply[];
+}
+
+export interface PublicProfile {
+  id: string;
+  name: string;
+  university: string;
+  batch?: string;
+  bio?: string;
+  avatarBg?: string;
+  postCount?: number;
 }
 
 export interface Post {

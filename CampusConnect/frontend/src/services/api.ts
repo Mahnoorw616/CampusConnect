@@ -1,4 +1,4 @@
-import type { Post, MarketplaceItem, User, University, Category, Comment, ReactionType } from '../types';
+import type { Post, MarketplaceItem, User, University, Category, Comment, CommentReply, ReactionType } from '../types';
 import { INITIAL_POSTS, INITIAL_MARKETPLACE, INITIAL_USER } from './mockData';
 
 type ApiRecord = Record<string, unknown>;
@@ -188,12 +188,29 @@ const normalizeUser = (value: unknown): User => {
   };
 };
 
+const normalizeCommentReply = (value: unknown): CommentReply => {
+  const raw = asRecord(value);
+  const author = asRecord(raw.authorId);
+  return {
+    id: asString(raw._id ?? raw.id, `reply-${Date.now()}`),
+    authorId: getObjectId(raw.authorId),
+    authorName: asString(author.name, 'Campus student'),
+    authorUniversity: asString(author.university, 'Other'),
+    content: asString(raw.text ?? raw.content),
+    createdAt: asString(raw.createdAt, new Date().toISOString()),
+  };
+};
+
 const normalizeComment = (
   value: unknown,
   postId: string
 ): Comment => {
   const raw = asRecord(value);
   const author = asRecord(raw.authorId);
+
+  const replies = Array.isArray(raw.replies)
+    ? raw.replies.map(normalizeCommentReply)
+    : [];
 
   return {
     id: asString(
@@ -211,6 +228,14 @@ const normalizeComment = (
       'Other'
     ),
     content: asString(raw.text ?? raw.content),
+    reactions: (raw.reactions as Record<ReactionType, number>) || {
+      Relatable: 0,
+      Helpful: 0,
+      Support: 0,
+      Vibe: 0,
+    },
+    userReaction: raw.userReaction as ReactionType | undefined,
+    replies,
     createdAt: asString(
       raw.createdAt,
       new Date().toISOString()
@@ -1025,6 +1050,74 @@ export const postsService = {
       }
       throw error;
     }
+  },
+
+  async updatePost(
+    postId: string,
+    data: { title?: string; content?: string; category?: string; mediaUrl?: string }
+  ): Promise<Post> {
+    const result = await apiRequest<{ post: ApiRecord }>(`/api/posts/${encodeURIComponent(postId)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    return normalizePost(result.post);
+  },
+
+  async deletePost(postId: string): Promise<void> {
+    await apiRequest<{ success: boolean }>(`/api/posts/${encodeURIComponent(postId)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async updateComment(postId: string, commentId: string, text: string): Promise<Post> {
+    const result = await apiRequest<{ post: ApiRecord }>(
+      `/api/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ text }),
+      }
+    );
+    return normalizePost(result.post);
+  },
+
+  async deleteComment(postId: string, commentId: string): Promise<Post> {
+    const result = await apiRequest<{ post: ApiRecord }>(
+      `/api/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}`,
+      {
+        method: 'DELETE',
+      }
+    );
+    return normalizePost(result.post);
+  },
+
+  async toggleCommentReaction(
+    postId: string,
+    commentId: string,
+    reactionType: ReactionType
+  ): Promise<{ reactions: Record<ReactionType, number>; userReaction?: ReactionType }> {
+    const result = await apiRequest<{
+      success: boolean;
+      reactions: Record<ReactionType, number>;
+      userReaction?: ReactionType;
+    }>(
+      `/api/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}/react`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ reactionType }),
+      }
+    );
+    return { reactions: result.reactions, userReaction: result.userReaction };
+  },
+
+  async addCommentReply(postId: string, commentId: string, text: string): Promise<Post> {
+    const result = await apiRequest<{ post: ApiRecord }>(
+      `/api/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}/reply`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ text }),
+      }
+    );
+    return normalizePost(result.post);
   },
 };
 

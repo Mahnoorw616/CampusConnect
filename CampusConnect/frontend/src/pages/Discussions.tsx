@@ -3,9 +3,10 @@ import { useOutletContext } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { postsService } from '../services/api';
-import { Post, Category, CATEGORIES, ReactionType, Comment as PostComment } from '../types';
+import { Post, Category, CATEGORIES, ReactionType, Comment as PostComment, PublicProfile } from '../types';
 import { PostCard } from '../components/discussion/PostCard';
 import { UniversityFilter } from '../components/discussion/UniversityFilter';
+import { PublicProfileModal } from '../components/profile/PublicProfileModal';
 import { PostCardSkeleton } from '../components/ui/Skeleton';
 import { EmptyState } from '../components/ui/EmptyState';
 import { MessageSquare, Plus } from 'lucide-react';
@@ -22,6 +23,9 @@ export const Discussions: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<Category>('All');
   const [isLoading, setIsLoading] = useState(true);
+
+  // Profile modal state
+  const [selectedProfile, setSelectedProfile] = useState<PublicProfile | null>(null);
 
   const fetchPosts = useCallback(async (
     showLoader = true,
@@ -67,7 +71,6 @@ export const Discussions: React.FC = () => {
     const targetPost = posts.find((p) => p.id === postId);
     if (!targetPost) return;
 
-    // Optimistic instant UI update
     const isSame = targetPost.userReaction === reactionType;
     const newReactions = { ...targetPost.reactions };
 
@@ -90,7 +93,6 @@ export const Discussions: React.FC = () => {
 
     try {
       const result = await postsService.toggleReaction(postId, reactionType, targetPost);
-      // Sync with MongoDB response
       setPosts((prev) =>
         prev.map((p) =>
           p.id === postId
@@ -99,7 +101,6 @@ export const Discussions: React.FC = () => {
         )
       );
     } catch {
-      // Revert if API request fails
       setPosts((prev) =>
         prev.map((p) => (p.id === postId ? targetPost : p))
       );
@@ -132,7 +133,6 @@ export const Discussions: React.FC = () => {
       createdAt: 'Just now',
     };
 
-    // ⚡ Instant DOM update (0ms UI latency)
     setPosts((prev) =>
       prev.map((p) =>
         p.id === postId
@@ -147,7 +147,6 @@ export const Discussions: React.FC = () => {
 
     try {
       const realComment = await postsService.addComment(postId, text, user);
-      // Replace optimistic comment with confirmed MongoDB comment
       setPosts((prev) =>
         prev.map((p) =>
           p.id === postId
@@ -162,7 +161,6 @@ export const Discussions: React.FC = () => {
       );
       showToast('Comment added', 'success');
     } catch {
-      // Revert on error
       setPosts((prev) =>
         prev.map((p) =>
           p.id === postId
@@ -175,6 +173,84 @@ export const Discussions: React.FC = () => {
         )
       );
       showToast('Failed to add comment', 'error');
+    }
+  };
+
+  const handleEditPost = async (
+    postId: string,
+    data: { title?: string; content?: string }
+  ) => {
+    try {
+      const updatedPost = await postsService.updatePost(postId, data);
+      setPosts((prev) => prev.map((p) => (p.id === postId ? updatedPost : p)));
+      showToast('Post updated successfully', 'success');
+    } catch {
+      showToast('Failed to update post', 'error');
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    try {
+      await postsService.deletePost(postId);
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      showToast('Post deleted', 'info');
+    } catch {
+      showToast('Failed to delete post', 'error');
+    }
+  };
+
+  const handleEditComment = async (postId: string, commentId: string, text: string) => {
+    try {
+      const updatedPost = await postsService.updateComment(postId, commentId, text);
+      setPosts((prev) => prev.map((p) => (p.id === postId ? updatedPost : p)));
+      showToast('Comment updated', 'success');
+    } catch {
+      showToast('Failed to edit comment', 'error');
+    }
+  };
+
+  const handleDeleteComment = async (postId: string, commentId: string) => {
+    try {
+      const updatedPost = await postsService.deleteComment(postId, commentId);
+      setPosts((prev) => prev.map((p) => (p.id === postId ? updatedPost : p)));
+      showToast('Comment deleted', 'info');
+    } catch {
+      showToast('Failed to delete comment', 'error');
+    }
+  };
+
+  const handleCommentReaction = async (
+    postId: string,
+    commentId: string,
+    reactionType: ReactionType
+  ) => {
+    try {
+      const res = await postsService.toggleCommentReaction(postId, commentId, reactionType);
+      setPosts((prev) =>
+        prev.map((p) => {
+          if (p.id !== postId) return p;
+          return {
+            ...p,
+            comments: (p.comments || []).map((c) =>
+              c.id === commentId
+                ? { ...c, reactions: res.reactions, userReaction: res.userReaction }
+                : c
+            ),
+          };
+        })
+      );
+    } catch {
+      showToast('Failed to react to comment', 'error');
+    }
+  };
+
+  const handleCommentReply = async (postId: string, commentId: string, text: string) => {
+    try {
+      const updatedPost = await postsService.addCommentReply(postId, commentId, text);
+      setPosts((prev) => prev.map((p) => (p.id === postId ? updatedPost : p)));
+      showToast('Reply added', 'success');
+    } catch {
+      showToast('Failed to reply', 'error');
     }
   };
 
@@ -208,7 +284,7 @@ export const Discussions: React.FC = () => {
         />
       </div>
 
-      {/* Category Pills/Segmented control */}
+      {/* Category Pills */}
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-3 mb-2">
         <span className="text-xs font-medium text-slate-400 mr-1 shrink-0">Category:</span>
         {CATEGORIES.map((cat) => {
@@ -252,10 +328,24 @@ export const Discussions: React.FC = () => {
               onReact={handleReaction}
               onSave={handleSave}
               onAddComment={handleAddComment}
+              onEditPost={handleEditPost}
+              onDeletePost={handleDeletePost}
+              onEditComment={handleEditComment}
+              onDeleteComment={handleDeleteComment}
+              onCommentReaction={handleCommentReaction}
+              onCommentReply={handleCommentReply}
+              onViewProfile={(profile) => setSelectedProfile(profile)}
             />
           ))}
         </div>
       )}
+
+      {/* Public Profile Modal */}
+      <PublicProfileModal
+        profile={selectedProfile}
+        isOpen={!!selectedProfile}
+        onClose={() => setSelectedProfile(null)}
+      />
     </div>
   );
 };
