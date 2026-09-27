@@ -194,7 +194,7 @@ export const Profile: React.FC = () => {
                 key={post.id}
                 post={post}
                 currentUser={user}
-                onUpvote={async () => {}}
+                onReact={async () => {}}
                 onSave={async () => {}}
                 onAddComment={async () => {}}
               />

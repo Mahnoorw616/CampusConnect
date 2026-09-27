@@ -1,5 +1,5 @@
-import type { Post, MarketplaceItem, User, University, Category, Comment } from '../types';
-import { INITIAL_POSTS, INITIAL_MARKETPLACE } from './mockData';
+import type { Post, MarketplaceItem, User, University, Category, Comment, ReactionType } from '../types';
+import { INITIAL_POSTS, INITIAL_MARKETPLACE, INITIAL_USER } from './mockData';
 
 // ─── API base URL ─────────────────────────────────────────────────────────────
 const API_BASE =
@@ -17,6 +17,21 @@ const STORAGE_KEYS = {
 // ─── Seed mock data (posts & marketplace only) ────────────────────────────────
 function initializeStorage() {
   if (typeof window === 'undefined') return;
+
+  // ---- migrate old post schema (upvotes → reactions) ----
+  const rawPosts = localStorage.getItem(STORAGE_KEYS.POSTS);
+  if (rawPosts) {
+    try {
+      const posts = JSON.parse(rawPosts) as Record<string, unknown>[];
+      // If any post still has an 'upvotes' field, wipe and re-seed with new schema
+      if (posts.length > 0 && 'upvotes' in posts[0]) {
+        localStorage.removeItem(STORAGE_KEYS.POSTS);
+      }
+    } catch {
+      localStorage.removeItem(STORAGE_KEYS.POSTS);
+    }
+  }
+
   if (!localStorage.getItem(STORAGE_KEYS.POSTS)) {
     localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(INITIAL_POSTS));
   }
@@ -81,14 +96,32 @@ export const authService = {
   },
 
   async login(email: string, password: string): Promise<{ user: User; token: string }> {
-    const data = await apiRequest<{ token: string; user: Record<string, unknown> }>(
-      '/api/auth/login',
-      { method: 'POST', body: JSON.stringify({ email, password }) }
-    );
-    const user = normalizeUser(data.user);
-    localStorage.setItem(STORAGE_KEYS.TOKEN, data.token);
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-    return { user, token: data.token };
+    try {
+      const data = await apiRequest<{ token: string; user: Record<string, unknown> }>(
+        '/api/auth/login',
+        { method: 'POST', body: JSON.stringify({ email, password }) }
+      );
+      const user = normalizeUser(data.user);
+      localStorage.setItem(STORAGE_KEYS.TOKEN, data.token);
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+      return { user, token: data.token };
+    } catch (err) {
+      // If server returned an authentication error (400/401), throw it
+      if (err instanceof Error && !err.message.includes('fetch') && !err.message.includes('Network') && !err.message.includes('Request failed')) {
+        throw err;
+      }
+      // Offline / Demo mode fallback when backend is unreachable
+      const nameFromEmail = email.split('@')[0].replace(/\./g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      const fallbackUser: User = {
+        ...INITIAL_USER,
+        name: nameFromEmail || INITIAL_USER.name,
+        email: email.trim() || INITIAL_USER.email,
+      };
+      const token = `demo_offline_token_${Date.now()}`;
+      localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(fallbackUser));
+      return { user: fallbackUser, token };
+    }
   },
 
   async register(data: {
@@ -99,27 +132,48 @@ export const authService = {
     whatsapp: string;
     password: string;
   }): Promise<{ user: User; token: string }> {
-    // Parse batch year number from a string like "Batch 2026" or just "2026"
     const batchYear =
       parseInt(data.batch.replace(/\D/g, ''), 10) || new Date().getFullYear();
-    const res = await apiRequest<{ token: string; user: Record<string, unknown> }>(
-      '/api/auth/register',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          name: data.name.trim(),
-          email: data.email.trim(),
-          password: data.password,
-          university: data.university,
-          batchYear,
-          whatsappNumber: data.whatsapp.trim(),
-        }),
+    try {
+      const res = await apiRequest<{ token: string; user: Record<string, unknown> }>(
+        '/api/auth/register',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            name: data.name.trim(),
+            email: data.email.trim(),
+            password: data.password,
+            university: data.university,
+            batchYear,
+            whatsappNumber: data.whatsapp.trim(),
+          }),
+        }
+      );
+      const user = normalizeUser(res.user);
+      localStorage.setItem(STORAGE_KEYS.TOKEN, res.token);
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+      return { user, token: res.token };
+    } catch (err) {
+      // If server returned a validation error (400), throw it
+      if (err instanceof Error && !err.message.includes('fetch') && !err.message.includes('Network') && !err.message.includes('Request failed')) {
+        throw err;
       }
-    );
-    const user = normalizeUser(res.user);
-    localStorage.setItem(STORAGE_KEYS.TOKEN, res.token);
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-    return { user, token: res.token };
+      // Offline / Demo mode fallback
+      const fallbackUser: User = {
+        id: `user-${Date.now()}`,
+        name: data.name.trim(),
+        email: data.email.trim(),
+        university: data.university,
+        batch: `Batch ${batchYear}`,
+        whatsapp: data.whatsapp.trim(),
+        avatarBg: '#17243A',
+        createdAt: new Date().toISOString(),
+      };
+      const token = `demo_offline_token_${Date.now()}`;
+      localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(fallbackUser));
+      return { user: fallbackUser, token };
+    }
   },
 
   async logout(): Promise<void> {
@@ -166,6 +220,7 @@ export const postsService = {
     content: string;
     category: Exclude<Category, 'All'>;
     university?: Exclude<University, 'All'>;
+    mediaUrl?: string;
     user: User;
   }): Promise<Post> {
     await delay(100);
@@ -181,10 +236,11 @@ export const postsService = {
       title: data.title.trim(),
       content: data.content.trim(),
       category: data.category,
-      upvotes: 1,
+      reactions: { Relatable: 0, Helpful: 0, Support: 0, Vibe: 0 },
       commentCount: 0,
       createdAt: 'Just now',
-      hasUpvoted: true,
+      mediaUrl: data.mediaUrl,
+      userReaction: undefined,
       isSaved: false,
       comments: [],
     };
@@ -193,20 +249,30 @@ export const postsService = {
     return newPost;
   },
 
-  async toggleUpvote(
-    postId: string
-  ): Promise<{ upvotes: number; hasUpvoted: boolean }> {
+  async toggleReaction(
+    postId: string,
+    reactionType: ReactionType
+  ): Promise<{ reactions: Record<ReactionType, number>; userReaction?: ReactionType }> {
     await delay(40);
     const raw = localStorage.getItem(STORAGE_KEYS.POSTS);
     const posts: Post[] = raw ? (JSON.parse(raw) as Post[]) : INITIAL_POSTS;
 
-    let result = { upvotes: 0, hasUpvoted: false };
+    let result: { reactions: Record<ReactionType, number>; userReaction?: ReactionType } = {
+      reactions: { Relatable: 0, Helpful: 0, Support: 0, Vibe: 0 },
+      userReaction: undefined,
+    };
+
     const updated = posts.map((p) => {
       if (p.id === postId) {
-        const currentlyUpvoted = !!p.hasUpvoted;
-        const newUpvotes = currentlyUpvoted ? Math.max(0, p.upvotes - 1) : p.upvotes + 1;
-        result = { upvotes: newUpvotes, hasUpvoted: !currentlyUpvoted };
-        return { ...p, upvotes: newUpvotes, hasUpvoted: !currentlyUpvoted };
+        const isSame = p.userReaction === reactionType;
+        const newReactions = { ...p.reactions };
+        // Remove previous reaction count
+        if (p.userReaction) newReactions[p.userReaction] = Math.max(0, newReactions[p.userReaction] - 1);
+        // Add new reaction count (unless toggling off)
+        if (!isSame) newReactions[reactionType] = (newReactions[reactionType] ?? 0) + 1;
+        const newUserReaction = isSame ? undefined : reactionType;
+        result = { reactions: newReactions, userReaction: newUserReaction };
+        return { ...p, reactions: newReactions, userReaction: newUserReaction };
       }
       return p;
     });

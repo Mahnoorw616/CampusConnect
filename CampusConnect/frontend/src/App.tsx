@@ -4,7 +4,6 @@ import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppLayout } from './components/layout/AppLayout';
-import { Home } from './pages/Home';
 import { Discussions } from './pages/Discussions';
 import { Marketplace } from './pages/Marketplace';
 import { Saved } from './pages/Saved';
@@ -47,8 +46,7 @@ export default function App() {
 
               {/* Authenticated Application */}
               <Route element={<ProtectedLayout />}>
-                <Route path="/" element={<Home />} />
-                <Route path="/discussions" element={<Discussions />} />
+                <Route path="/" element={<Discussions />} />
                 <Route path="/marketplace" element={<Marketplace />} />
                 <Route path="/saved" element={<Saved />} />
                 <Route path="/profile" element={<Profile />} />

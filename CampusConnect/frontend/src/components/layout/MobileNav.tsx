@@ -1,11 +1,10 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, MessageSquare, ShoppingBag, Bookmark, User as UserIcon } from 'lucide-react';
+import { MessageSquare, ShoppingBag, Bookmark, User as UserIcon } from 'lucide-react';
 
 export const MobileNav: React.FC = () => {
   const tabs = [
-    { label: 'Feed', path: '/', icon: Home },
-    { label: 'Discuss', path: '/discussions', icon: MessageSquare },
+    { label: 'Discussions', path: '/', icon: MessageSquare },
     { label: 'Market', path: '/marketplace', icon: ShoppingBag, isMarket: true },
     { label: 'Saved', path: '/saved', icon: Bookmark },
     { label: 'Profile', path: '/profile', icon: UserIcon },

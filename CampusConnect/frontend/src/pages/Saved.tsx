@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { postsService } from '../services/api';
-import { Post } from '../types';
+import { Post, ReactionType } from '../types';
 import { PostCard } from '../components/discussion/PostCard';
 import { PostCardSkeleton } from '../components/ui/Skeleton';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -33,18 +33,18 @@ export const Saved: React.FC = () => {
     fetchSaved();
   }, []);
 
-  const handleUpvote = async (postId: string) => {
+  const handleReaction = async (postId: string, reactionType: ReactionType) => {
     try {
-      const result = await postsService.toggleUpvote(postId);
+      const result = await postsService.toggleReaction(postId, reactionType);
       setSavedPosts((prev) =>
         prev.map((p) =>
           p.id === postId
-            ? { ...p, upvotes: result.upvotes, hasUpvoted: result.hasUpvoted }
+            ? { ...p, reactions: result.reactions, userReaction: result.userReaction }
             : p
         )
       );
     } catch {
-      showToast('Failed to upvote', 'error');
+      showToast('Failed to react', 'error');
     }
   };
 
@@ -110,7 +110,7 @@ export const Saved: React.FC = () => {
               key={post.id}
               post={post}
               currentUser={user}
-              onUpvote={handleUpvote}
+              onReact={handleReaction}
               onSave={handleSave}
               onAddComment={handleAddComment}
             />

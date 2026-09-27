@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { postsService } from '../services/api';
-import { Post, Category, CATEGORIES } from '../types';
+import { Post, Category, CATEGORIES, ReactionType } from '../types';
 import { PostCard } from '../components/discussion/PostCard';
 import { UniversityFilter } from '../components/discussion/UniversityFilter';
 import { PostCardSkeleton } from '../components/ui/Skeleton';
@@ -45,18 +45,18 @@ export const Discussions: React.FC = () => {
     return () => window.removeEventListener('campuscrew:post-created', handlePostCreated);
   }, [fetchPosts]);
 
-  const handleUpvote = async (postId: string) => {
+  const handleReaction = async (postId: string, reactionType: ReactionType) => {
     try {
-      const result = await postsService.toggleUpvote(postId);
+      const result = await postsService.toggleReaction(postId, reactionType);
       setPosts((prev) =>
         prev.map((p) =>
           p.id === postId
-            ? { ...p, upvotes: result.upvotes, hasUpvoted: result.hasUpvoted }
+            ? { ...p, reactions: result.reactions, userReaction: result.userReaction }
             : p
         )
       );
     } catch {
-      showToast('Failed to upvote', 'error');
+      showToast('Failed to react', 'error');
     }
   };
 
@@ -165,7 +165,7 @@ export const Discussions: React.FC = () => {
               key={post.id}
               post={post}
               currentUser={user}
-              onUpvote={handleUpvote}
+              onReact={handleReaction}
               onSave={handleSave}
               onAddComment={handleAddComment}
             />

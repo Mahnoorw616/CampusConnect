@@ -44,6 +44,7 @@ export const AppLayout: React.FC = () => {
     content: string;
     category: Exclude<Category, 'All'>;
     university: Exclude<University, 'All'>;
+    mediaUrl?: string;
   }) => {
     if (!user) return;
     try {

@@ -121,7 +121,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   {p.title}
                 </div>
                 <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-2">
-                  <span>{p.upvotes} upvotes</span>
+                <span>
+                    {Object.values(p.reactions ?? {}).reduce((a: number, b) => a + (b as number), 0)} reactions
+                  </span>
                   <span>·</span>
                   <span>{p.commentCount} comments</span>
                 </div>

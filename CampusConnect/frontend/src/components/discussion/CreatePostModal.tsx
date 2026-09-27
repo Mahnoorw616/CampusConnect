@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { POST_CATEGORIES, Category, University, REGISTER_UNIVERSITIES, User } from '../../types';
-import { X } from 'lucide-react';
+import { X, Image as ImageIcon, Film, Paperclip, Upload } from 'lucide-react';
 
 interface CreatePostModalProps {
   isOpen: boolean;
@@ -10,6 +10,7 @@ interface CreatePostModalProps {
     content: string;
     category: Exclude<Category, 'All'>;
     university: Exclude<University, 'All'>;
+    mediaUrl?: string;
   }) => Promise<void>;
   currentUser: User;
 }
@@ -26,10 +27,43 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [university, setUniversity] = useState<Exclude<University, 'All'>>(
     currentUser.university || 'FAST'
   );
+  const [mediaUrl, setMediaUrl] = useState<string | undefined>(undefined);
+  const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   if (!isOpen) return null;
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 15 * 1024 * 1024) {
+      setError('File size exceeds 15MB limit.');
+      return;
+    }
+
+    const type = file.type.startsWith('video/') ? 'video' : 'image';
+    setMediaType(type);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setMediaUrl(event.target?.result as string);
+      setError('');
+    };
+    reader.onerror = () => {
+      setError('Failed to read selected file.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeMedia = () => {
+    setMediaUrl(undefined);
+    setMediaType(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,9 +84,11 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
         content: content.trim(),
         category,
         university,
+        mediaUrl,
       });
       setTitle('');
       setContent('');
+      removeMedia();
       onClose();
     } catch {
       setError('Failed to post discussion. Please try again.');
@@ -96,7 +132,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             </div>
           )}
 
-          {/* Target University & Category selection */}
+          {/* Target Campus & Category */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
@@ -157,9 +193,58 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="Provide background, questions, or specific details for your peers..."
-              rows={5}
+              rows={4}
               className="w-full text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#17243A] dark:focus:border-slate-400 resize-none"
             />
+          </div>
+
+          {/* Media / Picture Upload Section */}
+          <div>
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+              Attach Picture or Media (Optional)
+            </label>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+
+            {mediaUrl ? (
+              <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900 group max-h-56 flex items-center justify-center">
+                {mediaType === 'video' ? (
+                  <video src={mediaUrl} controls className="max-h-56 w-full object-contain" />
+                ) : (
+                  <img src={mediaUrl} alt="Upload preview" className="max-h-56 w-full object-contain" />
+                )}
+                <button
+                  type="button"
+                  onClick={removeMedia}
+                  className="absolute top-2 right-2 p-1.5 rounded-full bg-black/70 text-white hover:bg-black transition-colors"
+                  title="Remove media"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-[#17243A] dark:hover:border-slate-400 rounded-xl p-4 text-center transition-colors flex flex-col items-center justify-center gap-1.5 group bg-slate-50/50 dark:bg-slate-800/40"
+              >
+                <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 group-hover:bg-[#17243A] group-hover:text-white dark:group-hover:bg-slate-200 dark:group-hover:text-slate-900 transition-colors">
+                  <Upload className="w-4 h-4" />
+                </div>
+                <div className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                  Click to upload a picture or video clip
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  Supports PNG, JPG, GIF, MP4 (Max 15MB)
+                </div>
+              </button>
+            )}
           </div>
 
           {/* Actions */}

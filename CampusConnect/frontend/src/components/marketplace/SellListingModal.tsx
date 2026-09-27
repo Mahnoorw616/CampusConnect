@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { University, REGISTER_UNIVERSITIES, User } from '../../types';
-import { X, Check } from 'lucide-react';
+import { X, Upload } from 'lucide-react';
 
 interface SellListingModalProps {
   isOpen: boolean;
@@ -38,7 +38,34 @@ export const SellListingModal: React.FC<SellListingModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   if (!isOpen) return null;
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image size exceeds 10MB limit.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setCoverImage(event.target?.result as string);
+      setError('');
+    };
+    reader.onerror = () => {
+      setError('Failed to read image file.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeCoverImage = () => {
+    setCoverImage('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,7 +114,7 @@ export const SellListingModal: React.FC<SellListingModalProps> = ({
       setIsFree(true);
       setDescription('');
       setDriveLink('');
-      setCoverImage('');
+      removeCoverImage();
       onClose();
     } catch {
       setError('Failed to publish listing. Please try again.');
@@ -243,7 +270,7 @@ export const SellListingModal: React.FC<SellListingModalProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Mention if it includes midterm solutions, handwritten notes, printed binder, or physical book edition..."
-              rows={4}
+              rows={3}
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#285943] resize-none"
             />
           </div>
@@ -262,18 +289,49 @@ export const SellListingModal: React.FC<SellListingModalProps> = ({
             />
           </div>
 
-          {/* Cover image url (optional) */}
+          {/* Cover Picture Upload */}
           <div>
             <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Cover Image URL (Optional)
+              Resource Picture / Cover Photo (Optional)
             </label>
+
             <input
-              type="text"
-              value={coverImage}
-              onChange={(e) => setCoverImage(e.target.value)}
-              placeholder="Leave blank for automatic clean course code graphic"
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400"
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
             />
+
+            {coverImage ? (
+              <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900 group max-h-48 flex items-center justify-center">
+                <img src={coverImage} alt="Resource cover preview" className="max-h-48 w-full object-contain" />
+                <button
+                  type="button"
+                  onClick={removeCoverImage}
+                  className="absolute top-2 right-2 p-1.5 rounded-full bg-black/70 text-white hover:bg-black transition-colors"
+                  title="Remove picture"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full border-2 border-dashed border-[#D9E8DE] dark:border-slate-700 hover:border-[#285943] dark:hover:border-[#88C6A5] rounded-xl p-3.5 text-center transition-colors flex flex-col items-center justify-center gap-1 group bg-[#EEF5F0]/40 dark:bg-slate-800/40"
+              >
+                <div className="w-8 h-8 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center text-[#285943] dark:text-[#88C6A5] group-hover:bg-[#285943] group-hover:text-white transition-colors">
+                  <Upload className="w-4 h-4" />
+                </div>
+                <div className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                  Click to upload a picture of your notes or textbook
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  Supports PNG, JPG, WEBP (Max 10MB)
+                </div>
+              </button>
+            )}
           </div>
 
           {/* Notice */}

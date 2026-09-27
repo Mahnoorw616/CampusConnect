@@ -7,6 +7,8 @@ export type Category = 'All' | 'Admissions' | 'Course Review' | 'General';
 export const CATEGORIES: Category[] = ['All', 'Admissions', 'Course Review', 'General'];
 export const POST_CATEGORIES: Exclude<Category, 'All'>[] = ['Admissions', 'Course Review', 'General'];
 
+export type ReactionType = 'Relatable' | 'Helpful' | 'Support' | 'Vibe';
+
 export interface User {
   id: string;
   name: string;
@@ -37,11 +39,12 @@ export interface Post {
   title: string;
   content: string;
   category: Exclude<Category, 'All'>;
-  upvotes: number;
+  reactions: Record<ReactionType, number>;
   commentCount: number;
   createdAt: string;
   comments: Comment[];
-  hasUpvoted?: boolean;
+  userReaction?: ReactionType;
+  mediaUrl?: string;
   isSaved?: boolean;
 }
 

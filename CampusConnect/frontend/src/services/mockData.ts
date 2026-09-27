@@ -28,10 +28,10 @@ For students who have already taken AP under Dr. Farooq or Web under Sir Usman:
 
 Appreciate any honest advice before the portal closes this Friday!`,
     category: 'Course Review',
-    upvotes: 24,
+    reactions: { Relatable: 5, Helpful: 24, Support: 2, Vibe: 0 },
     commentCount: 5,
     createdAt: '2 hours ago',
-    hasUpvoted: false,
+    userReaction: undefined,
     isSaved: true,
     comments: [
       {
@@ -77,10 +77,10 @@ Key takeaways from our batch:
 - Ensure all 3 group members have balanced commitments (avoid teaming up with friends who plan to skip lab sprints).
 - Get your problem statement approved by week 3 or you will be scrambling at the proposal defense.`,
     category: 'General',
-    upvotes: 42,
+    reactions: { Relatable: 12, Helpful: 42, Support: 8, Vibe: 5 },
     commentCount: 4,
     createdAt: '5 hours ago',
-    hasUpvoted: true,
+    userReaction: 'Helpful',
     isSaved: false,
     comments: [
       {
@@ -114,10 +114,10 @@ Key takeaways from our batch:
 
 Anyone currently carpooling from Satellite Town or Westridge? Looking to split petrol costs for 3 days a week. Drop a comment if you have an open seat.`,
     category: 'General',
-    upvotes: 18,
+    reactions: { Relatable: 18, Helpful: 2, Support: 10, Vibe: 1 },
     commentCount: 3,
     createdAt: 'Yesterday',
-    hasUpvoted: false,
+    userReaction: undefined,
     isSaved: false,
     comments: [
       {
@@ -142,10 +142,10 @@ Anyone currently carpooling from Satellite Town or Westridge? Looking to split p
 
 Are the class slides sufficient, or do the exam papers usually pull numerical problems from Morris Mano Chapter 4? Would love insights from 2nd year seniors.`,
     category: 'Course Review',
-    upvotes: 15,
+    reactions: { Relatable: 5, Helpful: 15, Support: 3, Vibe: 0 },
     commentCount: 2,
     createdAt: '1 day ago',
-    hasUpvoted: false,
+    userReaction: undefined,
     isSaved: false,
     comments: [
       {
@@ -173,10 +173,10 @@ Past trend:
 - 2nd list dropped to around 68.2%
 If your aggregate is above 72%, you are in a safe zone for morning session.`,
     category: 'Admissions',
-    upvotes: 29,
+    reactions: { Relatable: 3, Helpful: 29, Support: 12, Vibe: 4 },
     commentCount: 4,
     createdAt: '2 days ago',
-    hasUpvoted: false,
+    userReaction: undefined,
     isSaved: false,
     comments: [
       {

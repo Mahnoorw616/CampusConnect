@@ -33,8 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenCreatePost, onOpenSellMo
   };
 
   const navItems = [
-    { label: 'Campus Feed', path: '/', icon: Home },
-    { label: 'Discussions', path: '/discussions', icon: MessageSquare },
+    { label: 'Discussions', path: '/', icon: MessageSquare },
     { label: 'Marketplace', path: '/marketplace', icon: ShoppingBag, isMarket: true },
     { label: 'Saved', path: '/saved', icon: Bookmark },
     { label: 'My Profile', path: '/profile', icon: UserIcon },
