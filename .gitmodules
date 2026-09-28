@@ -1,0 +1,3 @@
+[submodule "CampusConnect/CampusConnectBackend"]
+	path = CampusConnect/CampusConnectBackend
+	url = https://github.com/Mahnoorw616/CampusConnectBackend.git
