@@ -62,12 +62,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenCreatePost, onOpenSellMo
                 to={item.path}
                 end={item.path === '/'}
                 className={({ isActive }) =>
-                  `flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors min-h-[42px] ${
-                    isActive
-                      ? item.isMarket
-                        ? 'bg-[#EEF5F0] text-[#285943] dark:bg-[#132A1F] dark:text-[#91CEA9]'
-                        : 'bg-slate-100 text-[#17243A] dark:bg-slate-800 dark:text-slate-100'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'
+                  `flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors min-h-[42px] ${isActive
+                    ? item.isMarket
+                      ? 'bg-[#EEF5F0] text-[#285943] dark:bg-[#132A1F] dark:text-[#91CEA9]'
+                      : 'bg-slate-100 text-[#17243A] dark:bg-slate-800 dark:text-slate-100'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'
                   }`
                 }
               >
@@ -120,7 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenCreatePost, onOpenSellMo
           >
             {UNIVERSITIES.map((uni) => (
               <option key={uni} value={uni}>
-                {uni === 'All' ? 'All Campuses' : `${uni} Islamabad`}
+                {uni === 'All' ? 'All Campuses' : `${uni} Gujrat`}
               </option>
             ))}
           </select>
@@ -180,3 +179,4 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenCreatePost, onOpenSellMo
     </aside>
   );
 };
+

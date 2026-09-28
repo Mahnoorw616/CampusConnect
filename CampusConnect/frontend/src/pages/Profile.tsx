@@ -99,7 +99,7 @@ export const Profile: React.FC = () => {
               </h1>
               <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
                 <span className="font-semibold text-[#17243A] dark:text-slate-200">
-                  {user.university} Islamabad
+                  {user.university} Gujrat
                 </span>
                 <span>·</span>
                 <span>{user.batch}</span>
@@ -156,11 +156,10 @@ export const Profile: React.FC = () => {
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800">
         <button
           onClick={() => setActiveTab('posts')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors -mb-px ${
-            activeTab === 'posts'
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors -mb-px ${activeTab === 'posts'
               ? 'border-[#17243A] text-[#17243A] dark:border-slate-200 dark:text-white'
               : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
-          }`}
+            }`}
         >
           <MessageSquare className="w-4 h-4" />
           <span>My Discussions ({userPosts.length})</span>
@@ -168,11 +167,10 @@ export const Profile: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('marketplace')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors -mb-px ${
-            activeTab === 'marketplace'
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors -mb-px ${activeTab === 'marketplace'
               ? 'border-[#285943] text-[#285943] dark:border-[#91CEA9] dark:text-[#91CEA9]'
               : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
-          }`}
+            }`}
         >
           <ShoppingBag className="w-4 h-4" />
           <span>My Listed Resources ({userListings.length})</span>
@@ -194,9 +192,9 @@ export const Profile: React.FC = () => {
                 key={post.id}
                 post={post}
                 currentUser={user}
-                onReact={async () => {}}
-                onSave={async () => {}}
-                onAddComment={async () => {}}
+                onReact={async () => { }}
+                onSave={async () => { }}
+                onAddComment={async () => { }}
               />
             ))}
           </div>

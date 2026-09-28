@@ -29,7 +29,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
           </h3>
         </div>
         <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-3">
-          CampusCrew is a peer-to-peer student community across Islamabad and Rawalpindi. Share notes, discuss electives, and connect without commercial markups.
+          CampusCrew is a peer-to-peer student community across Gujrat. Share notes, discuss electives, and connect without commercial markups.
         </p>
         <div className="text-[11px] text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800/80 pt-2 flex items-center justify-between">
           <span>Active Campuses</span>
@@ -140,3 +140,4 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
     </aside>
   );
 };
+

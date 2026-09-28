@@ -55,7 +55,7 @@ export const Landing: React.FC = () => {
       <section className="px-6 pt-16 pb-16 max-w-5xl mx-auto text-center">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium mb-6">
           <MapPin className="w-3.5 h-3.5 text-[#17243A] dark:text-slate-200" />
-          <span>Built for Islamabad & Rawalpindi University Students</span>
+          <span>Built for Gujrat University Students</span>
         </div>
 
         <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.15] max-w-3xl mx-auto">
@@ -85,17 +85,17 @@ export const Landing: React.FC = () => {
         {/* Campuses Tagline */}
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500 dark:text-slate-400">
           <span>Active Networks:</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200">UOG Islamabad</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200">UOG Gujrat</span>
           <span>·</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200">ILM (SEECS / SMME)</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200">ILM</span>
           <span>·</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200">Superior Park Road</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200">Superior Gujrat</span>
           <span>·</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200">UOC University</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200">UOC</span>
           <span>·</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200">Swedish University</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200">Swedish</span>
           <span>·</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200">UOP University</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200">UOP</span>
         </div>
       </section>
 
@@ -119,7 +119,7 @@ export const Landing: React.FC = () => {
                   Ahmed Khan
                 </div>
                 <div className="text-[11px] text-slate-400">
-                  UOG Islamabad · Batch 2026
+                  UOG Gujrat · Batch 2026
                 </div>
               </div>
             </div>
@@ -223,9 +223,10 @@ export const Landing: React.FC = () => {
             <span>—</span>
             <span>This is a place where students help each other.</span>
           </div>
-          <div>Islamabad & Rawalpindi Campus Network</div>
+          <div>Gujrat Campus Network</div>
         </div>
       </footer>
     </div>
   );
 };
+

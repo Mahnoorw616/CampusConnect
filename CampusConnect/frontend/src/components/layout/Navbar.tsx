@@ -29,7 +29,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCreatePost, onOpenNotifica
       <div className="hidden md:flex items-center gap-6 text-xs font-semibold text-slate-600 dark:text-slate-300">
         <span className="text-slate-400 font-normal">Active Community:</span>
         <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[#17243A] dark:text-slate-200">
-          {selectedUniversity === 'All' ? 'All Campuses (ISB/RWP)' : `${selectedUniversity} Islamabad`}
+          {selectedUniversity === 'All' ? 'All Campuses (Gujrat)' : `${selectedUniversity} Gujrat`}
         </span>
       </div>
 

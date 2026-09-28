@@ -18,7 +18,7 @@ export const INITIAL_POSTS: Post[] = [
     authorName: 'Ahmed Khan',
     authorUniversity: 'UOG',
     authorBatch: 'Batch 2026',
-    title: 'Which CS electives are worth taking in 5th semester at UOG Islamabad?',
+    title: 'Which CS electives are worth taking in 5th semester at UOG Gujrat?',
     content: `I'm finalizing course registration for the upcoming semester and torn between Advanced Programming, Web Development, and Theory of Automata prerequisites.
 
 For students who have already taken AP under Dr. Farooq or Web under Sir Usman:
@@ -109,8 +109,8 @@ Key takeaways from our batch:
     authorName: 'Muneeb Arshad',
     authorUniversity: 'Superior',
     authorBatch: 'Batch 2026',
-    title: 'Superior Islamabad Park Road route: private vans vs university transport schedule',
-    content: `Starting next week, evening lab batches end at 5:15 PM. The university buses on the Rawalpindi / Saddar route fill up in under 5 minutes.
+    title: 'Superior Gujrat campus route: private vans vs university transport schedule',
+    content: `Starting next week, evening lab batches end at 5:15 PM. The university buses on the Gujrat city route fill up in under 5 minutes.
 
 Anyone currently carpooling from Satellite Town or Westridge? Looking to split petrol costs for 3 days a week. Drop a comment if you have an open seat.`,
     category: 'General',
@@ -137,7 +137,7 @@ Anyone currently carpooling from Satellite Town or Westridge? Looking to split p
     authorName: 'Hira Mustafa',
     authorUniversity: 'UOP',
     authorBatch: 'Batch 2027',
-    title: 'UOP University E-9 campus: Midterm preparation strategy for Digital Logic Design',
+    title: 'UOP Gujrat campus: Midterm preparation strategy for Digital Logic Design',
     content: `Professors have released the syllabus for DLD midterms (Boolean algebra, K-Maps, and combinational circuit decoders).
 
 Are the class slides sufficient, or do the exam papers usually pull numerical problems from Morris Mano Chapter 4? Would love insights from 2nd year seniors.`,
@@ -165,8 +165,8 @@ Are the class slides sufficient, or do the exam papers usually pull numerical pr
     authorName: 'Saad Farooq',
     authorUniversity: 'UOC',
     authorBatch: 'Batch 2025',
-    title: 'UOC University E-8: Admission test cutoffs and merit list expectations for Fall',
-    content: `Compiling merit expectations for friends applying to CS and Software Engineering at UOC Islamabad.
+    title: 'UOC Gujrat campus: Admission test cutoffs and merit list expectations for Fall',
+    content: `Compiling merit expectations for friends applying to CS and Software Engineering at UOC Gujrat.
 
 Past trend:
 - 1st merit list aggregate for CS was approx 71.5%
@@ -242,7 +242,7 @@ export const INITIAL_MARKETPLACE: MarketplaceItem[] = [
     courseCode: 'CS304',
     university: 'Superior',
     price: 1500,
-    description: 'Original physical book in pristine condition. No pen marks or highlights inside. Pick up from Superior Islamabad main gate or H-13 hostel area. Saves paying 3500 PKR at F-10 bookshops.',
+    description: 'Original physical book in pristine condition. No pen marks or highlights inside. Pick up from the Superior Gujrat main gate or a nearby hostel area. Saves paying 3500 PKR at local bookshops.',
     coverImage: '/src/assets/images/database_systems_book_1790333494400.jpg',
     createdAt: '2 days ago',
   },
@@ -284,7 +284,7 @@ export const INITIAL_MARKETPLACE: MarketplaceItem[] = [
     courseCode: 'CS307',
     university: 'UOG',
     price: 600,
-    description: 'Paperback copy plus printed solutions for Wireshark labs (TCP/UDP, HTTP headers, DNS analysis). Available on UOG H-9 campus.',
+    description: 'Paperback copy plus printed solutions for Wireshark labs (TCP/UDP, HTTP headers, DNS analysis). Available on the UOG Gujrat campus.',
     createdAt: '5 days ago',
   },
 ];
