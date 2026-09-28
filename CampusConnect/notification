@@ -1,0 +1,279 @@
+avatar - notifications.tsx
+"use client"
+
+import * as React from "react"
+import { Bell, X } from "lucide-react"
+import {
+    Popover,
+    PopoverTrigger,
+    PopoverContent,
+} from "@/components/ui/popover"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+
+interface NotificationItem {
+    id: string
+    user: string
+    avatarUrl?: string
+    message: string
+    time: string
+}
+
+interface NotificationsProps {
+    items?: NotificationItem[]
+}
+
+const defaultNotifications: NotificationItem[] = [
+    {
+        id: "1",
+        user: "Alice",
+        avatarUrl: "https://cdn.21st.dev/assets/mirror/fe/fe732e2dea7b40ca816d515cdd2492920c799a8f68f81b1197e6c70e6fec3f0c.jpg",
+        message: "Sent you a message.",
+        time: "2m ago",
+    },
+    {
+        id: "2",
+        user: "Bob",
+        avatarUrl: "https://cdn.21st.dev/assets/mirror/f9/f966af15960e16739e81db8ae82697644c57b714dd5e68881e81aa29a3198ebf.jpg",
+        message: "Commented on your post.",
+        time: "10m ago",
+    },
+]
+
+export default function AvatarNotifications({ items = defaultNotifications }: NotificationsProps) {
+    const [notifications, setNotifications] = React.useState(items)
+
+    const clearAll = () => {
+        setNotifications([])
+    }
+
+    const hasNotifications = notifications.length > 0
+
+    return (
+        <Popover>
+            <PopoverTrigger asChild>
+                <button className="relative inline-flex items-center justify-center rounded-full p-2 hover:bg-muted focus:outline-none border rounded">
+                    <Bell className="h-5 w-5" />
+                    {/* Blinking / static status dot */}
+                    <span
+                        className={cn(
+                            "absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background",
+                            hasNotifications ? "bg-green-500 animate-ping" : "bg-gray-400"
+                        )}
+                    />
+                </button>
+            </PopoverTrigger>
+            {/* Align popover to the center of the icon */}
+            <PopoverContent className="w-80 p-0" side="bottom" align="center">
+                <div className="max-h-80 overflow-y-auto">
+                    <div className="flex justify-between items-center px-4 py-2 border-b">
+                        <h2 className="text-sm font-medium">Notifications</h2>
+                        {hasNotifications && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={clearAll}
+                                className="h-6 w-6 rounded-full"
+                            >
+                                <X className="h-4 w-4" />
+                            </Button>
+                        )}
+                    </div>
+                    {notifications.length === 0 ? (
+                        <div className="p-4 text-sm text-muted-foreground text-center">
+                            No messages
+                        </div>
+                    ) : (
+                        <ul className="divide-y divide-border">
+                            {notifications.map((item) => (
+                                <li
+                                    key={item.id}
+                                    className="flex items-center gap-3 p-4 hover:bg-muted/50 transition"
+                                >
+                                    <Avatar className="h-8 w-8">
+                                        {item.avatarUrl ? (
+                                            <AvatarImage src={item.avatarUrl} alt={item.user} />
+                                        ) : (
+                                            <AvatarFallback>{item.user[0]}</AvatarFallback>
+                                        )}
+                                    </Avatar>
+                                    <div className="flex flex-col text-sm">
+                                        <span className="font-medium">{item.user}</span>
+                                        <span className="text-muted-foreground text-xs">
+                                            {item.message}
+                                        </span>
+                                    </div>
+                                    <span className="ml-auto text-xs text-muted-foreground">
+                                        {item.time}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            </PopoverContent>
+        </Popover>
+    )
+}
+
+
+demo.tsx
+import AvatarNotifications from "@/components/ui/avatar-notifications";
+
+export default function DemoOne() {
+    return <AvatarNotifications />;
+}
+Copy - paste these files for dependencies:
+    code
+Tsx
+shadcn / button
+import * as React from "react"
+import { Slot } from "@radix-ui/react-slot"
+import { cva, type VariantProps } from "class-variance-authority"
+
+import { cn } from "@/lib/utils"
+
+const buttonVariants = cva(
+    "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+    {
+        variants: {
+            variant: {
+                default: "bg-primary text-primary-foreground hover:bg-primary/90",
+                destructive:
+                    "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+                outline:
+                    "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+                secondary:
+                    "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+                ghost: "hover:bg-accent hover:text-accent-foreground",
+                link: "text-primary underline-offset-4 hover:underline",
+            },
+            size: {
+                default: "h-10 px-4 py-2",
+                sm: "h-9 rounded-md px-3",
+                lg: "h-11 rounded-md px-8",
+                icon: "h-10 w-10",
+            },
+        },
+        defaultVariants: {
+            variant: "default",
+            size: "default",
+        },
+    },
+)
+
+export interface ButtonProps
+    extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+    asChild?: boolean
+}
+
+const Button = React.forwardRef < HTMLButtonElement, ButtonProps> (
+    ({ className, variant, size, asChild = false, ...props }, ref) => {
+        const Comp = asChild ? Slot : "button"
+        return (
+            <Comp
+                className={cn(buttonVariants({ variant, size, className }))}
+                ref={ref}
+                {...props}
+            />
+        )
+    },
+)
+Button.displayName = "Button"
+
+export { Button, buttonVariants }
+code
+Tsx
+shadcn / avatar
+"use client";
+
+import * as React from "react";
+import * as AvatarPrimitive from "@radix-ui/react-avatar";
+
+import { cn } from "@/lib/utils";
+
+const Avatar = React.forwardRef <
+    React.ElementRef < typeof AvatarPrimitive.Root >,
+    React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>
+>(({className, ...props }, ref) => (
+        <AvatarPrimitive.Root
+            ref={ref}
+            className={cn(
+                "relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full",
+                className,
+            )}
+            {...props}
+        />
+        ));
+        Avatar.displayName = AvatarPrimitive.Root.displayName;
+
+        const AvatarImage = React.forwardRef<
+            React.ElementRef<typeof AvatarPrimitive.Image>,
+        React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
+>(({className, ...props }, ref) => (
+        <AvatarPrimitive.Image
+            ref={ref}
+            className={cn("aspect-square h-full w-full", className)}
+            {...props}
+        />
+        ));
+        AvatarImage.displayName = AvatarPrimitive.Image.displayName;
+
+        const AvatarFallback = React.forwardRef<
+            React.ElementRef<typeof AvatarPrimitive.Fallback>,
+        React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback>
+>(({className, ...props }, ref) => (
+        <AvatarPrimitive.Fallback
+            ref={ref}
+            className={cn(
+                "flex h-full w-full items-center justify-center rounded-full bg-muted",
+                className,
+            )}
+            {...props}
+        />
+        ));
+        AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName;
+
+        export {Avatar, AvatarImage, AvatarFallback};
+
+        export default Avatar;
+        code
+        Tsx
+        shadcn/popover
+        "use client"
+
+        import * as React from "react"
+        import * as PopoverPrimitive from "@radix-ui/react-popover"
+
+        import {cn} from "@/lib/utils"
+
+        const Popover = PopoverPrimitive.Root
+
+        const PopoverTrigger = PopoverPrimitive.Trigger
+
+        const PopoverContent = React.forwardRef<
+            React.ElementRef<typeof PopoverPrimitive.Content>,
+        React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
+>(({className, align = "center", sideOffset = 4, ...props }, ref) => (
+        <PopoverPrimitive.Portal>
+            <PopoverPrimitive.Content
+                ref={ref}
+                align={align}
+                sideOffset={sideOffset}
+                className={cn(
+                    "z-50 w-72 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+                    className
+                )}
+                {...props}
+            />
+        </PopoverPrimitive.Portal>
+        ))
+        PopoverContent.displayName = PopoverPrimitive.Content.displayName
+
+        export {Popover, PopoverTrigger, PopoverContent}
+        Install NPM dependencies:
+        code
+        Bash
+        lucide-react, @radix-ui/react-slot, class-variance-authority, @radix-ui/react-avatar, @radix-ui/react-popover

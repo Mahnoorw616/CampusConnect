@@ -270,52 +270,55 @@ export const Discussions: React.FC = () => {
 
   return (
     <div>
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-            Discussions
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Filter conversations by topic, department, and university.
-          </p>
+      {/* Sticky Header — pins cleanly below top Navbar without overlap */}
+      <div className="sticky top-[61px] z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-3 pb-2 bg-[#F7F8FA] dark:bg-[#0B111E] border-b border-slate-200/60 dark:border-slate-800/60 shadow-2xs mb-4">
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              Discussions
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Filter conversations by topic, department, and university.
+            </p>
+          </div>
+
+          <button
+            onClick={onOpenCreatePost}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-[#17243A] hover:bg-[#101827] dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white transition-colors shadow-xs shrink-0 min-h-[40px]"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Discussion</span>
+          </button>
         </div>
 
-        <button
-          onClick={onOpenCreatePost}
-          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-[#17243A] hover:bg-[#101827] dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white transition-colors shadow-xs shrink-0 min-h-[40px]"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Discussion</span>
-        </button>
-      </div>
+        {/* University Filters */}
+        <div className="mb-3">
+          <UniversityFilter
+            selectedUniversity={selectedUniversity}
+            onSelectUniversity={setSelectedUniversity}
+          />
+        </div>
 
-      {/* University Filters */}
-      <div className="mb-3">
-        <UniversityFilter
-          selectedUniversity={selectedUniversity}
-          onSelectUniversity={setSelectedUniversity}
-        />
-      </div>
-
-      {/* Category Pills */}
-      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-3 mb-2">
-        <span className="text-xs font-medium text-slate-400 mr-1 shrink-0">Category:</span>
-        {CATEGORIES.map((cat) => {
-          const isSelected = selectedCategory === cat;
-          return (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`whitespace-nowrap px-3 py-1 text-xs font-medium rounded-md transition-colors min-h-[32px] ${isSelected
-                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-semibold shadow-xs'
-                  : 'bg-white dark:bg-[#131D31] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200/80 dark:border-slate-800'
-                }`}
-            >
-              {cat}
-            </button>
-          );
-        })}
+        {/* Category Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-3 mb-2">
+          <span className="text-xs font-medium text-slate-400 mr-1 shrink-0">Category:</span>
+          {CATEGORIES.map((cat) => {
+            const isSelected = selectedCategory === cat;
+            return (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`whitespace-nowrap px-3 py-1 text-xs font-medium rounded-md transition-colors min-h-[32px] ${isSelected
+                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-semibold shadow-xs'
+                    : 'bg-white dark:bg-[#131D31] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200/80 dark:border-slate-800'
+                  }`}
+              >
+                {cat}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Feed */}

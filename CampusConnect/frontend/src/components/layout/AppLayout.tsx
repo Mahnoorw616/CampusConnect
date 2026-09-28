@@ -17,6 +17,7 @@ export const AppLayout: React.FC = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
   const location = useLocation();
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -43,7 +44,10 @@ export const AppLayout: React.FC = () => {
     return () => window.clearInterval(interval);
   }, [refreshNotifications]);
 
-  useEffect(() => { setNotificationsOpen(false); }, [location.pathname, location.search]);
+  useEffect(() => {
+    setNotificationsOpen(false);
+    setDrawerOpen(false);
+  }, [location.pathname, location.search]);
 
   const openNotifications = () => {
     setNotificationsOpen(true);
@@ -124,20 +128,23 @@ export const AppLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F7F8FA] dark:bg-[#0B111E] text-[#18202B] dark:text-[#E2E8F0] flex flex-col antialiased">
-      {/* Mobile Top App Bar */}
-      <div className="lg:hidden">
-        <Navbar onOpenCreatePost={() => setIsCreatePostOpen(true)} onOpenNotifications={openNotifications} unreadCount={unreadCount} />
-      </div>
+      {/* Universal Top App Bar (Desktop + Mobile) */}
+      <Navbar
+        onToggleDrawer={() => setDrawerOpen((prev) => !prev)}
+        onOpenCreatePost={() => setIsCreatePostOpen(true)}
+        onOpenNotifications={openNotifications}
+        unreadCount={unreadCount}
+      />
+
+      {/* Navigation Drawer Overlay */}
+      <Sidebar
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onOpenCreatePost={() => setIsCreatePostOpen(true)}
+        onOpenSellModal={() => setIsSellModalOpen(true)}
+      />
 
       <div className="flex-1 flex max-w-7xl w-full mx-auto justify-center">
-        {/* Left Desktop Sidebar */}
-        <Sidebar
-          onOpenNotifications={openNotifications}
-          unreadCount={unreadCount}
-          onOpenCreatePost={() => setIsCreatePostOpen(true)}
-          onOpenSellModal={() => setIsSellModalOpen(true)}
-        />
-
         {/* Center Main Content Container */}
         <main className="flex-1 max-w-2xl min-w-0 px-4 sm:px-6 py-6 pb-24 lg:pb-8">
           <Outlet

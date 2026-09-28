@@ -15,7 +15,7 @@ export const MobileNav: React.FC = () => {
       className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#101827]/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800"
       aria-label="Mobile Bottom Navigation"
     >
-      <div className="grid grid-cols-5 items-center h-16 max-w-md mx-auto px-2">
+      <div className="grid grid-cols-4 items-center h-16 max-w-md mx-auto px-2">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (

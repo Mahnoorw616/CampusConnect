@@ -4,26 +4,39 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { BrandLogo } from '../ui/BrandLogo';
 import { Avatar } from '../ui/Avatar';
-import { Moon, Sun, Plus, Bell } from 'lucide-react';
+import { Moon, Sun, Plus, Bell, Menu } from 'lucide-react';
 
 interface NavbarProps {
+  onToggleDrawer?: () => void;
   onOpenCreatePost?: () => void;
   onOpenNotifications?: () => void;
   unreadCount?: number;
   pageTitle?: string;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenCreatePost, onOpenNotifications, unreadCount = 0 }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onToggleDrawer, onOpenCreatePost, onOpenNotifications, unreadCount = 0 }) => {
   const { user, selectedUniversity } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 dark:bg-[#101827]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-4 sm:px-6 py-3 flex items-center justify-between">
-      {/* Zone 1: Brand title, single line */}
-      <Link to="/">
-        <BrandLogo size="sm" />
-      </Link>
+    <header className="sticky top-0 z-30 bg-white dark:bg-[#101827] border-b border-slate-200/80 dark:border-slate-800 px-4 sm:px-6 py-3 flex items-center justify-between shadow-xs">
+      {/* Zone 1: Hamburger Menu + Brand Logo */}
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {onToggleDrawer && (
+          <button
+            onClick={onToggleDrawer}
+            className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center shrink-0"
+            title="Open navigation menu"
+            aria-label="Toggle navigation drawer"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
+        <Link to="/" className="flex items-center shrink-0">
+          <BrandLogo size="sm" />
+        </Link>
+      </div>
 
       {/* Zone 2: Navigation / Current Context / Campus Filter label */}
       <div className="hidden md:flex items-center gap-6 text-xs font-semibold text-slate-600 dark:text-slate-300">

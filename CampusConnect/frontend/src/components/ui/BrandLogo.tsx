@@ -46,18 +46,18 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   const px = inlineSizes[size] ?? 56;
 
   return (
-    <div className={`inline-flex items-center gap-2.5 ${className}`}>
+    <div className={`inline-flex items-center gap-2.5 shrink-0 whitespace-nowrap ${className}`}>
       {showIcon && (
-        <div className="relative rounded-2xl transition-all duration-300 p-1.5 bg-white border border-slate-200/80 shadow-xs dark:bg-white dark:ring-2 dark:ring-[#52B788] dark:shadow-[0_0_14px_rgba(82,183,136,0.4)] shrink-0 flex items-center justify-center">
+        <div className="relative rounded-xl transition-all duration-300 p-1 bg-white border border-slate-200/80 shadow-xs dark:bg-white dark:ring-2 dark:ring-[#52B788] dark:shadow-[0_0_14px_rgba(82,183,136,0.4)] shrink-0 flex items-center justify-center">
           <img
             src={feedLogo}
             alt="CampusCrew Logo"
-            style={{ width: px, height: px, minWidth: px, minHeight: px }}
-            className={`object-contain rounded-xl shadow-xs transition-transform hover:scale-105 shrink-0 ${iconClassName}`}
+            style={{ width: px === 44 ? 32 : px, height: px === 44 ? 32 : px, minWidth: px === 44 ? 32 : px, minHeight: px === 44 ? 32 : px }}
+            className={`object-contain rounded-lg shadow-xs transition-transform hover:scale-105 shrink-0 ${iconClassName}`}
           />
         </div>
       )}
-      <BrandText size={size} />
+      <BrandText size={size} className="whitespace-nowrap shrink-0" />
     </div>
   );
 };
