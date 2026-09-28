@@ -18,6 +18,22 @@ const API_BASE = (
 
 type DataMode = 'api' | 'mock' | 'hybrid';
 
+type PostQuery = {
+  university?: University;
+  category?: Category;
+  page?: number;
+  limit?: number;
+  mine?: boolean;
+};
+
+type PostPage = {
+  posts: Post[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
+
 const configuredDataMode = runtimeEnv.VITE_DATA_MODE;
 const DATA_MODE: DataMode =
   configuredDataMode === 'mock' ||
@@ -302,6 +318,7 @@ const normalizePost = (value: unknown): Post => {
     comments,
     mediaUrl: asString(raw.mediaUrl) || undefined,
     userReaction: raw.userReaction as ReactionType | undefined,
+    isSaved: Boolean(raw.isSaved),
   };
 };
 
@@ -817,60 +834,120 @@ const createMockListing = (
 // ─── Posts service ───────────────────────────────────────────────────────────
 
 export const postsService = {
-  async getPosts(
-    university?: University,
-    category?: Category
-  ): Promise<Post[]> {
+  async getPostsPage(params: PostQuery = {}): Promise<PostPage> {
     if (shouldUseMockData()) {
       await delay(60);
-      return getMockPosts(university, category);
+      const allPosts = getMockPosts(params.university, params.category);
+      const page = Math.max(1, params.page ?? 1);
+      const limit = Math.max(1, params.limit ?? (allPosts.length || 20));
+      const start = (page - 1) * limit;
+      const posts = allPosts.slice(start, start + limit);
+      return {
+        posts,
+        total: allPosts.length,
+        page,
+        limit,
+        pages: allPosts.length ? Math.ceil(allPosts.length / limit) : 0,
+      };
     }
 
     try {
       const result = await apiRequest<{
         posts: ApiRecord[];
+        total?: number;
+        page?: number;
+        limit?: number;
+        pages?: number;
       }>(
         `/api/posts${queryString({
           uni:
-            university && university !== 'All'
-              ? university
+            params.university && params.university !== 'All'
+              ? params.university
               : undefined,
           category:
-            category && category !== 'All'
-              ? category
+            params.category && params.category !== 'All'
+              ? params.category
               : undefined,
+          page: params.page ? String(params.page) : undefined,
+          limit: params.limit ? String(params.limit) : undefined,
+          mine: params.mine ? 'true' : undefined,
         })}`
       );
 
-      const savedIds = readSavedPostIds();
-
-      return (result.posts || [])
-        .map(normalizePost)
-        .map((post) => ({
-          ...post,
-          isSaved: savedIds.includes(post.id),
-        }));
+      const posts = (result.posts || []).map(normalizePost);
+      const page = result.page ?? params.page ?? 1;
+      const limit = result.limit ?? params.limit ?? posts.length;
+      const total = result.total ?? posts.length;
+      return {
+        posts,
+        total,
+        page,
+        limit,
+        pages: result.pages ?? (total ? Math.ceil(total / limit) : 0),
+      };
     } catch (error) {
       if (shouldFallbackToMockData()) {
         await delay(60);
-        return getMockPosts(university, category);
+        const allPosts = getMockPosts(params.university, params.category);
+        const page = Math.max(1, params.page ?? 1);
+        const limit = Math.max(1, params.limit ?? (allPosts.length || 20));
+        const start = (page - 1) * limit;
+        const posts = allPosts.slice(start, start + limit);
+        return {
+          posts,
+          total: allPosts.length,
+          page,
+          limit,
+          pages: allPosts.length ? Math.ceil(allPosts.length / limit) : 0,
+        };
       }
       throw error;
     }
   },
 
-  async getSavedPosts(): Promise<Post[]> {
-    const savedIds = readSavedPostIds();
+  async getPosts(
+    university?: University,
+    category?: Category
+  ): Promise<Post[]> {
+    const result = await this.getPostsPage({ university, category });
+    return result.posts;
+  },
 
-    if (!savedIds.length) {
-      return [];
+  async getAllUserPosts(): Promise<Post[]> {
+    const allPosts: Post[] = [];
+    let page = 1;
+    let pages = 1;
+
+    do {
+      const result = await this.getPostsPage({
+        page,
+        limit: 100,
+        mine: true,
+      });
+      allPosts.push(...result.posts);
+      pages = result.pages;
+      page += 1;
+    } while (page <= pages);
+
+    return allPosts;
+  },
+
+  async getSavedPosts(): Promise<Post[]> {
+    if (shouldUseMockData()) {
+      await delay(60);
+      return getMockPosts().filter((post) => post.isSaved);
     }
 
-    const posts = await this.getPosts();
-
-    return posts.filter((post) =>
-      savedIds.includes(post.id)
-    );
+    try {
+      const result = await apiRequest<{ posts: ApiRecord[] }>('/api/posts/saved');
+      return (result.posts || []).map(normalizePost);
+    } catch (error) {
+      if (shouldFallbackToMockData()) {
+        await delay(60);
+        return getMockPosts().filter((post) => post.isSaved);
+      }
+      throw error;
+    }
   },
 
   async createPost(data: {
@@ -1039,6 +1116,20 @@ export const postsService = {
   async toggleSavePost(
     postId: string
   ): Promise<boolean> {
+    if (!shouldUseMockData()) {
+      try {
+        const result = await apiRequest<{ isSaved: boolean }>(
+          `/api/posts/${encodeURIComponent(postId)}/save`,
+          { method: 'POST' }
+        );
+        return result.isSaved;
+      } catch (error) {
+        if (!shouldFallbackToMockData()) {
+          throw error;
+        }
+      }
+    }
+
     const currentIds = readSavedPostIds();
 
     const nextIds = currentIds.includes(postId)

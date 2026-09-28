@@ -3,6 +3,8 @@ const { protect } = require('../middleware/authMiddleware');
 const { createRateLimiter } = require('../middleware/rateLimitMiddleware');
 const {
   getPosts,
+  getSavedPosts,
+  toggleSavedPost,
   createPost,
   updatePost,
   deletePost,
@@ -22,11 +24,13 @@ const writeRateLimit = createRateLimiter({
 });
 
 router.get('/', protect, getPosts);
+router.get('/saved', protect, getSavedPosts);
 router.post('/', protect, writeRateLimit, createPost);
 router.put('/:id', protect, writeRateLimit, updatePost);
 router.delete('/:id', protect, writeRateLimit, deletePost);
 
 router.post('/:id/react', protect, writeRateLimit, toggleReaction);
+router.post('/:id/save', protect, writeRateLimit, toggleSavedPost);
 
 router.post('/:id/comment', protect, writeRateLimit, addComment);
 router.put('/:id/comments/:commentId', protect, writeRateLimit, updateComment);

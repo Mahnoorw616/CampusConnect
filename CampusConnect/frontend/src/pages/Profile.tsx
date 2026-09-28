@@ -3,10 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import { postsService, marketplaceService } from '../services/api';
-import { Post, MarketplaceItem, User } from '../types';
+import { Post, MarketplaceItem, User, ReactionType, PublicProfile } from '../types';
 import { Avatar } from '../components/ui/Avatar';
 import { PostCard } from '../components/discussion/PostCard';
 import { MarketplaceCard } from '../components/marketplace/MarketplaceCard';
+import { PublicProfileModal } from '../components/profile/PublicProfileModal';
 import { EmptyState } from '../components/ui/EmptyState';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import {
@@ -36,13 +37,14 @@ export const Profile: React.FC = () => {
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [userListings, setUserListings] = useState<MarketplaceItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedProfile, setSelectedProfile] = useState<PublicProfile | null>(null);
 
   useEffect(() => {
     async function loadData() {
       if (!user) return;
       setIsLoading(true);
       try {
-        const allPosts = await postsService.getPosts();
+        const allPosts = await postsService.getAllUserPosts();
         setUserPosts(allPosts.filter((p) => p.authorId === user.id || p.authorName === user.name));
 
         const allListings = await marketplaceService.getListings();
@@ -55,6 +57,128 @@ export const Profile: React.FC = () => {
     }
     loadData();
   }, [user, showToast]);
+
+  const handleReaction = async (postId: string, reactionType: ReactionType) => {
+    const targetPost = userPosts.find((post) => post.id === postId);
+    if (!targetPost) return;
+
+    try {
+      const result = await postsService.toggleReaction(postId, reactionType, targetPost);
+      setUserPosts((prev) => prev.map((post) =>
+        post.id === postId
+          ? { ...post, reactions: result.reactions, userReaction: result.userReaction }
+          : post
+      ));
+    } catch {
+      showToast('Failed to react', 'error');
+    }
+  };
+
+  const handleSave = async (postId: string) => {
+    try {
+      const isSaved = await postsService.toggleSavePost(postId);
+      setUserPosts((prev) => prev.map((post) =>
+        post.id === postId ? { ...post, isSaved } : post
+      ));
+      showToast(isSaved ? 'Saved to bookmarks' : 'Removed from bookmarks', 'info');
+    } catch {
+      showToast('Failed to update bookmark', 'error');
+    }
+  };
+
+  const handleAddComment = async (postId: string, text: string) => {
+    if (!user) return;
+    try {
+      const comment = await postsService.addComment(postId, text, user);
+      setUserPosts((prev) => prev.map((post) =>
+        post.id === postId
+          ? {
+            ...post,
+            commentCount: post.commentCount + 1,
+            comments: [...post.comments, comment],
+          }
+          : post
+      ));
+      showToast('Comment added', 'success');
+    } catch {
+      showToast('Failed to add comment', 'error');
+    }
+  };
+
+  const handleEditPost = async (
+    postId: string,
+    data: { title?: string; content?: string }
+  ) => {
+    try {
+      const updatedPost = await postsService.updatePost(postId, data);
+      setUserPosts((prev) => prev.map((post) => post.id === postId ? updatedPost : post));
+      showToast('Post updated successfully', 'success');
+    } catch {
+      showToast('Failed to update post', 'error');
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    try {
+      await postsService.deletePost(postId);
+      setUserPosts((prev) => prev.filter((post) => post.id !== postId));
+      showToast('Post deleted', 'info');
+    } catch {
+      showToast('Failed to delete post', 'error');
+    }
+  };
+
+  const handleEditComment = async (postId: string, commentId: string, text: string) => {
+    try {
+      const updatedPost = await postsService.updateComment(postId, commentId, text);
+      setUserPosts((prev) => prev.map((post) => post.id === postId ? updatedPost : post));
+      showToast('Comment updated', 'success');
+    } catch {
+      showToast('Failed to edit comment', 'error');
+    }
+  };
+
+  const handleDeleteComment = async (postId: string, commentId: string) => {
+    try {
+      const updatedPost = await postsService.deleteComment(postId, commentId);
+      setUserPosts((prev) => prev.map((post) => post.id === postId ? updatedPost : post));
+      showToast('Comment deleted', 'info');
+    } catch {
+      showToast('Failed to delete comment', 'error');
+    }
+  };
+
+  const handleCommentReaction = async (
+    postId: string,
+    commentId: string,
+    reactionType: ReactionType
+  ) => {
+    try {
+      const result = await postsService.toggleCommentReaction(postId, commentId, reactionType);
+      setUserPosts((prev) => prev.map((post) => post.id === postId
+        ? {
+          ...post,
+          comments: post.comments.map((comment) => comment.id === commentId
+            ? { ...comment, reactions: result.reactions, userReaction: result.userReaction }
+            : comment
+          ),
+        }
+        : post
+      ));
+    } catch {
+      showToast('Failed to react to comment', 'error');
+    }
+  };
+
+  const handleCommentReply = async (postId: string, commentId: string, text: string) => {
+    try {
+      const updatedPost = await postsService.addCommentReply(postId, commentId, text);
+      setUserPosts((prev) => prev.map((post) => post.id === postId ? updatedPost : post));
+      showToast('Reply added', 'success');
+    } catch {
+      showToast('Failed to reply', 'error');
+    }
+  };
 
   const handleDeleteListing = async (listingId: string) => {
     try {
@@ -157,8 +281,8 @@ export const Profile: React.FC = () => {
         <button
           onClick={() => setActiveTab('posts')}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors -mb-px ${activeTab === 'posts'
-              ? 'border-[#17243A] text-[#17243A] dark:border-slate-200 dark:text-white'
-              : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
+            ? 'border-[#17243A] text-[#17243A] dark:border-slate-200 dark:text-white'
+            : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
             }`}
         >
           <MessageSquare className="w-4 h-4" />
@@ -168,8 +292,8 @@ export const Profile: React.FC = () => {
         <button
           onClick={() => setActiveTab('marketplace')}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors -mb-px ${activeTab === 'marketplace'
-              ? 'border-[#285943] text-[#285943] dark:border-[#91CEA9] dark:text-[#91CEA9]'
-              : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
+            ? 'border-[#285943] text-[#285943] dark:border-[#91CEA9] dark:text-[#91CEA9]'
+            : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
             }`}
         >
           <ShoppingBag className="w-4 h-4" />
@@ -192,9 +316,16 @@ export const Profile: React.FC = () => {
                 key={post.id}
                 post={post}
                 currentUser={user}
-                onReact={async () => { }}
-                onSave={async () => { }}
-                onAddComment={async () => { }}
+                onReact={handleReaction}
+                onSave={handleSave}
+                onAddComment={handleAddComment}
+                onEditPost={handleEditPost}
+                onDeletePost={handleDeletePost}
+                onEditComment={handleEditComment}
+                onDeleteComment={handleDeleteComment}
+                onCommentReaction={handleCommentReaction}
+                onCommentReply={handleCommentReply}
+                onViewProfile={setSelectedProfile}
               />
             ))}
           </div>
@@ -226,6 +357,12 @@ export const Profile: React.FC = () => {
           ))}
         </div>
       )}
+
+      <PublicProfileModal
+        profile={selectedProfile}
+        isOpen={!!selectedProfile}
+        onClose={() => setSelectedProfile(null)}
+      />
     </div>
   );
 };

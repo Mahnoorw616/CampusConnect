@@ -47,6 +47,7 @@ export default function App() {
               {/* Authenticated Application */}
               <Route element={<ProtectedLayout />}>
                 <Route path="/" element={<Discussions />} />
+                <Route path="/discussions" element={<Navigate to="/" replace />} />
                 <Route path="/marketplace" element={<Marketplace />} />
                 <Route path="/saved" element={<Saved />} />
                 <Route path="/profile" element={<Profile />} />

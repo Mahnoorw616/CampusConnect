@@ -3,6 +3,7 @@ const Notification = require('../models/Notifications');
 const Post = require('../models/Post');
 const PostReaction = require('../models/PostReaction');
 const CommentReaction = require('../models/CommentReaction');
+const SavedPost = require('../models/SavedPost');
 const { normalizeMediaValue, deleteMediaById } = require('../config/mediaStore');
 const { UNIVERSITY_OPTIONS } = require('../constants/universities');
 
@@ -29,14 +30,16 @@ const populatePost = (query) => query
 
 const reactionMaps = async (posts, userId) => {
   const ids = posts.map((post) => post._id);
-  if (!ids.length) return { posts: new Map(), comments: new Map() };
-  const [postReactions, commentReactions] = await Promise.all([
+  if (!ids.length) return { posts: new Map(), comments: new Map(), saved: new Set() };
+  const [postReactions, commentReactions, savedPosts] = await Promise.all([
     PostReaction.find({ postId: { $in: ids }, userId }).lean(),
-    CommentReaction.find({ postId: { $in: ids }, userId }).lean()
+    CommentReaction.find({ postId: { $in: ids }, userId }).lean(),
+    SavedPost.find({ postId: { $in: ids }, userId }).select('postId').lean()
   ]);
   return {
     posts: new Map(postReactions.map((r) => [r.postId.toString(), r.reactionType])),
-    comments: new Map(commentReactions.map((r) => [`${r.postId}:${r.commentId}`, r.reactionType]))
+    comments: new Map(commentReactions.map((r) => [`${r.postId}:${r.commentId}`, r.reactionType])),
+    saved: new Set(savedPosts.map((savedPost) => savedPost.postId.toString()))
   };
 };
 
@@ -45,6 +48,7 @@ const serializePost = (post, maps) => {
   const postId = post._id.toString();
   value.reactions = { ...EMPTY_REACTIONS, ...(value.reactions || {}) };
   value.userReaction = maps.posts.get(postId);
+  value.isSaved = maps.saved.has(postId);
   value.comments = (value.comments || []).map((comment) => {
     const commentId = comment._id.toString();
     comment.reactions = { ...EMPTY_REACTIONS, ...(comment.reactions || {}) };
@@ -95,6 +99,9 @@ const getPosts = async (req, res, next) => {
       if (!CATEGORIES.includes(category)) return res.status(400).json({ success: false, message: `category must be one of: ${CATEGORIES.join(', ')}` });
       filter.category = category;
     }
+    if (String(req.query.mine).toLowerCase() === 'true') {
+      filter.authorId = req.user._id;
+    }
     const { page, limit, skip } = pagination(req.query);
     const [posts, total] = await Promise.all([
       populatePost(Post.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit)),
@@ -144,7 +151,12 @@ const deletePost = async (req, res, next) => {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
     if (post.authorId.toString() !== req.user._id.toString()) return res.status(403).json({ success: false, message: 'Not authorized to delete this post' });
-    await Promise.all([PostReaction.deleteMany({ postId: post._id }), CommentReaction.deleteMany({ postId: post._id }), Post.findByIdAndDelete(post._id)]);
+    await Promise.all([
+      PostReaction.deleteMany({ postId: post._id }),
+      CommentReaction.deleteMany({ postId: post._id }),
+      SavedPost.deleteMany({ postId: post._id }),
+      Post.findByIdAndDelete(post._id)
+    ]);
     const mediaId = mediaIdFromUrl(post.mediaUrl);
     if (mediaId) await deleteMediaById(mediaId);
     return res.json({ success: true, message: 'Post deleted successfully', postId: req.params.id });
@@ -274,14 +286,18 @@ const toggleReaction = async (req, res, next) => {
       }
       post.markModified('reactions');
       await post.save({ session });
-      if (userReaction && !existing) {
+      if (
+        userReaction &&
+        !existing &&
+        post.authorId.toString() !== req.user._id.toString()
+      ) {
         try {
           await Notification.create([{
-            recipientId: post.authorId,
-            senderId: req.user._id,
+            recipient: post.authorId,
+            sender: req.user._id,
             type: 'LIKE',
-            text: `${req.user.name || 'Someone'} reacted to your discussion: ${post.title}`,
-            postId: post._id
+            message: `${req.user.name || 'Someone'} reacted to your discussion: ${post.title}`,
+            post: post._id
           }], { session });
         } catch (_err) { /* ignore notification failure */ }
       }
@@ -291,4 +307,97 @@ const toggleReaction = async (req, res, next) => {
   } catch (error) { return next(error); } finally { await session.endSession(); }
 };
 
-module.exports = { getPosts, createPost, updatePost, deletePost, addComment, updateComment, deleteComment, toggleCommentReaction, addCommentReply, toggleReaction };
+const getSavedPosts = async (req, res, next) => {
+  try {
+    const savedRecords = await SavedPost.find({ userId: req.user._id })
+      .sort({ createdAt: -1 })
+      .select('postId');
+
+    const postIds = savedRecords.map((record) => record.postId);
+    if (!postIds.length) {
+      return res.json({
+        success: true,
+        count: 0,
+        total: 0,
+        page: 1,
+        limit: 0,
+        pages: 0,
+        posts: []
+      });
+    }
+
+    const posts = await populatePost(Post.find({ _id: { $in: postIds } }));
+    const postsById = new Map(posts.map((post) => [post._id.toString(), post]));
+    const orderedPosts = postIds
+      .map((postId) => postsById.get(postId.toString()))
+      .filter(Boolean);
+    const maps = await reactionMaps(orderedPosts, req.user._id);
+
+    return res.json({
+      success: true,
+      count: orderedPosts.length,
+      total: orderedPosts.length,
+      page: 1,
+      limit: orderedPosts.length,
+      pages: orderedPosts.length ? 1 : 0,
+      posts: orderedPosts.map((post) => serializePost(post, maps))
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const toggleSavedPost = async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid post ID' });
+    }
+
+    const post = await Post.findById(req.params.id).select('_id');
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Post not found' });
+    }
+
+    const existing = await SavedPost.findOne({
+      userId: req.user._id,
+      postId: post._id
+    });
+
+    if (existing) {
+      await SavedPost.deleteOne({ _id: existing._id });
+      return res.json({
+        success: true,
+        isSaved: false,
+        message: 'Post removed from saved discussions'
+      });
+    }
+
+    await SavedPost.create({
+      userId: req.user._id,
+      postId: post._id
+    });
+
+    return res.json({
+      success: true,
+      isSaved: true,
+      message: 'Post saved successfully'
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+module.exports = {
+  getPosts,
+  getSavedPosts,
+  toggleSavedPost,
+  createPost,
+  updatePost,
+  deletePost,
+  addComment,
+  updateComment,
+  deleteComment,
+  toggleCommentReaction,
+  addCommentReply,
+  toggleReaction
+};

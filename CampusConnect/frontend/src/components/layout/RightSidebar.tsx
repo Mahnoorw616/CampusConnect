@@ -96,7 +96,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               </h4>
             </div>
             <button
-              onClick={() => navigate('/discussions')}
+              onClick={() => navigate('/')}
               className="text-[11px] text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 font-medium"
             >
               See More
@@ -107,7 +107,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
             {trendingPosts.slice(0, 3).map((p) => (
               <div
                 key={p.id}
-                onClick={() => (onSelectPost ? onSelectPost(p.id) : navigate('/discussions'))}
+                onClick={() => (onSelectPost ? onSelectPost(p.id) : navigate(`/?post=${encodeURIComponent(p.id)}`))}
                 className="cursor-pointer group pb-2.5 border-b border-slate-100 dark:border-slate-800/60 last:border-0 last:pb-0"
               >
                 <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mb-1">
@@ -140,4 +140,3 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
     </aside>
   );
 };
-
