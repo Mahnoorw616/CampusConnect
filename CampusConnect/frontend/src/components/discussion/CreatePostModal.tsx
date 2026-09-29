@@ -10,7 +10,7 @@ interface CreatePostModalProps {
     content: string;
     category: Exclude<Category, 'All'>;
     university: Exclude<University, 'All'>;
-    mediaUrl?: string;
+    mediaFile?: File;
   }) => Promise<void>;
   currentUser: User;
 }
@@ -27,7 +27,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [university, setUniversity] = useState<Exclude<University, 'All'>>(
     currentUser.university || 'UOG'
   );
-  const [mediaUrl, setMediaUrl] = useState<string | undefined>(undefined);
+  const [mediaFile, setMediaFile] = useState<File | undefined>(undefined);
+  const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | undefined>(undefined);
   const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -45,22 +46,22 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       return;
     }
 
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      setError('Please select an image or video file.');
+      return;
+    }
+
     const type = file.type.startsWith('video/') ? 'video' : 'image';
     setMediaType(type);
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setMediaUrl(event.target?.result as string);
-      setError('');
-    };
-    reader.onerror = () => {
-      setError('Failed to read selected file.');
-    };
-    reader.readAsDataURL(file);
+    setMediaFile(file);
+    setMediaPreviewUrl(URL.createObjectURL(file));
+    setError('');
   };
 
   const removeMedia = () => {
-    setMediaUrl(undefined);
+    if (mediaPreviewUrl) URL.revokeObjectURL(mediaPreviewUrl);
+    setMediaFile(undefined);
+    setMediaPreviewUrl(undefined);
     setMediaType(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -84,7 +85,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
         content: content.trim(),
         category,
         university,
-        mediaUrl,
+        mediaFile,
       });
       setTitle('');
       setContent('');
@@ -212,12 +213,12 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               className="hidden"
             />
 
-            {mediaUrl ? (
+            {mediaPreviewUrl ? (
               <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900 group max-h-56 flex items-center justify-center">
                 {mediaType === 'video' ? (
-                  <video src={mediaUrl} controls className="max-h-56 w-full object-contain" />
+                  <video src={mediaPreviewUrl} controls className="max-h-56 w-full object-contain" />
                 ) : (
-                  <img src={mediaUrl} alt="Upload preview" className="max-h-56 w-full object-contain" />
+                  <img src={mediaPreviewUrl} alt="Upload preview" className="max-h-56 w-full object-contain" />
                 )}
                 <button
                   type="button"

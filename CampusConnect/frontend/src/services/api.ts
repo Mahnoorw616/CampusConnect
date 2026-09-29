@@ -10,7 +10,10 @@ const runtimeEnv = (import.meta as unknown as {
 const defaultApiBase =
   typeof window === 'undefined'
     ? 'http://localhost:5000'
-    : `http://${window.location.hostname}:5000`;
+    : window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1'
+      ? `http://${window.location.hostname}:5000`
+      : window.location.origin;
 
 const API_BASE = (
   runtimeEnv.VITE_API_BASE_URL || defaultApiBase
@@ -317,6 +320,10 @@ const normalizePost = (value: unknown): Post => {
     ),
     comments,
     mediaUrl: asString(raw.mediaUrl) || undefined,
+    mediaType:
+      raw.mediaType === 'video' || raw.mediaType === 'image'
+        ? raw.mediaType
+        : undefined,
     userReaction: raw.userReaction as ReactionType | undefined,
     isSaved: Boolean(raw.isSaved),
   };
@@ -453,6 +460,139 @@ const apiRequest = async <T>(
   }
 
   return body as T;
+};
+
+const readFileAsDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new ApiError('Could not read the selected file.'));
+    reader.readAsDataURL(file);
+  });
+
+type MediaKind = 'post' | 'marketplace';
+
+const mediaLimits: Record<MediaKind, { maxBytes: number; accepts: (file: File) => boolean }> = {
+  post: {
+    maxBytes: 15 * 1024 * 1024,
+    accepts: (file) => file.type.startsWith('image/') || file.type.startsWith('video/'),
+  },
+  marketplace: {
+    maxBytes: 10 * 1024 * 1024,
+    accepts: (file) => file.type.startsWith('image/'),
+  },
+};
+
+const MEDIA_CHUNK_BYTES = 2 * 1024 * 1024;
+
+const uploadMediaChunk = async (
+  uploadId: string,
+  chunkIndex: number,
+  chunk: Blob
+) => {
+  const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+  let response: Response;
+
+  try {
+    response = await fetch(
+      `${API_BASE}/api/media/uploads/${encodeURIComponent(uploadId)}/chunks/${chunkIndex}`,
+      {
+        method: 'PUT',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/octet-stream',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: chunk,
+      }
+    );
+  } catch {
+    throw new ApiError('Could not connect to the media upload endpoint.');
+  }
+
+  const text = await response.text();
+  let body: ApiRecord = {};
+  try {
+    body = asRecord(text ? JSON.parse(text) : {});
+  } catch {
+    body = {};
+  }
+
+  if (!response.ok) {
+    throw new ApiError(
+      asString(body.message, `Media chunk upload failed (${response.status})`),
+      response.status
+    );
+  }
+};
+
+export const mediaService = {
+  async upload(file: File, kind: MediaKind): Promise<{
+    url: string;
+    mediaType: 'image' | 'video';
+  }> {
+    const limits = mediaLimits[kind];
+    if (!limits.accepts(file)) {
+      throw new ApiError(
+        kind === 'post'
+          ? 'Please select an image or video file.'
+          : 'Please select an image file.'
+      );
+    }
+    if (file.size > limits.maxBytes) {
+      throw new ApiError(
+        `${kind === 'post' ? 'Post media' : 'Marketplace image'} cannot exceed ${Math.floor(limits.maxBytes / (1024 * 1024))}MB.`
+      );
+    }
+
+    const mediaType = file.type.startsWith('video/') ? 'video' : 'image';
+    if (DATA_MODE === 'mock') {
+      return { url: await readFileAsDataUrl(file), mediaType };
+    }
+
+    try {
+      const totalChunks = Math.ceil(file.size / MEDIA_CHUNK_BYTES);
+      const initialized = await apiRequest<{
+        uploadId: string;
+        chunkSize: number;
+        totalChunks: number;
+      }>('/api/media/uploads', {
+        method: 'POST',
+        body: JSON.stringify({
+          kind,
+          filename: file.name,
+          contentType: file.type,
+          totalBytes: file.size,
+          totalChunks,
+        }),
+      });
+
+      const chunkSize = initialized.chunkSize || MEDIA_CHUNK_BYTES;
+      for (let index = 0; index < initialized.totalChunks; index += 1) {
+        const start = index * chunkSize;
+        const end = Math.min(file.size, start + chunkSize);
+        await uploadMediaChunk(
+          initialized.uploadId,
+          index,
+          file.slice(start, end)
+        );
+      }
+
+      const completed = await apiRequest<{ mediaUrl: string }>(
+        `/api/media/uploads/${encodeURIComponent(initialized.uploadId)}/complete`,
+        { method: 'POST' }
+      );
+
+      return { url: completed.mediaUrl, mediaType };
+    } catch (error) {
+      // Hybrid mode can still be used for small local demos when the backend
+      // is unavailable. Production/API mode never hides an upload failure.
+      if (DATA_MODE === 'hybrid' && file.size <= 4 * 1024 * 1024) {
+        return { url: await readFileAsDataUrl(file), mediaType };
+      }
+      throw error;
+    }
+  },
 };
 
 const queryString = (
@@ -956,6 +1096,7 @@ export const postsService = {
     category: Exclude<Category, 'All'>;
     university?: Exclude<University, 'All'>;
     mediaUrl?: string;
+    mediaType?: 'image' | 'video';
     user: User;
   }): Promise<Post> {
     if (shouldUseMockData()) {
@@ -976,6 +1117,7 @@ export const postsService = {
         commentCount: 0,
         createdAt: 'Just now',
         mediaUrl: data.mediaUrl,
+        mediaType: data.mediaType,
         userReaction: undefined,
         isSaved: false,
         comments: [],
@@ -997,6 +1139,7 @@ export const postsService = {
           category: data.category,
           universityTag: data.university ?? data.user.university,
           mediaUrl: data.mediaUrl ?? '',
+          mediaType: data.mediaType ?? '',
         }),
       });
 
@@ -1020,6 +1163,7 @@ export const postsService = {
           commentCount: 0,
           createdAt: 'Just now',
           mediaUrl: data.mediaUrl,
+          mediaType: data.mediaType,
           userReaction: undefined,
           isSaved: false,
           comments: [],

@@ -13,7 +13,7 @@ interface SellListingModalProps {
     university: Exclude<University, 'All'>;
     description: string;
     driveLink?: string;
-    coverImage?: string;
+    coverImageFile?: File;
   }) => Promise<void>;
   currentUser: User;
 }
@@ -34,7 +34,8 @@ export const SellListingModal: React.FC<SellListingModalProps> = ({
   );
   const [description, setDescription] = useState('');
   const [driveLink, setDriveLink] = useState('');
-  const [coverImage, setCoverImage] = useState('');
+  const [coverImageFile, setCoverImageFile] = useState<File | undefined>(undefined);
+  const [coverImagePreviewUrl, setCoverImagePreviewUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -52,22 +53,20 @@ export const SellListingModal: React.FC<SellListingModalProps> = ({
       return;
     }
 
-    const reader = new FileReader();
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file.');
+      return;
+    }
 
-    reader.onload = (event) => {
-      setCoverImage(event.target?.result as string);
-      setError('');
-    };
-
-    reader.onerror = () => {
-      setError('Failed to read image file.');
-    };
-
-    reader.readAsDataURL(file);
+    setCoverImageFile(file);
+    setCoverImagePreviewUrl(URL.createObjectURL(file));
+    setError('');
   };
 
   const removeCoverImage = () => {
-    setCoverImage('');
+    if (coverImagePreviewUrl) URL.revokeObjectURL(coverImagePreviewUrl);
+    setCoverImageFile(undefined);
+    setCoverImagePreviewUrl('');
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -116,7 +115,7 @@ export const SellListingModal: React.FC<SellListingModalProps> = ({
         university,
         description: description.trim(),
         driveLink: driveLink.trim() || undefined,
-        coverImage: coverImage.trim() || undefined,
+        coverImageFile,
       });
 
       setTitle('');
@@ -259,8 +258,8 @@ export const SellListingModal: React.FC<SellListingModalProps> = ({
                   }
                 }}
                 className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors ${isFree
-                    ? 'bg-[#285943]'
-                    : 'bg-slate-300 dark:bg-slate-700'
+                  ? 'bg-[#285943]'
+                  : 'bg-slate-300 dark:bg-slate-700'
                   }`}
                 aria-pressed={isFree}
               >
@@ -337,10 +336,10 @@ export const SellListingModal: React.FC<SellListingModalProps> = ({
               className="hidden"
             />
 
-            {coverImage ? (
+            {coverImagePreviewUrl ? (
               <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900 group max-h-48 flex items-center justify-center">
                 <img
-                  src={coverImage}
+                  src={coverImagePreviewUrl}
                   alt="Resource cover preview"
                   className="max-h-48 w-full object-contain"
                 />

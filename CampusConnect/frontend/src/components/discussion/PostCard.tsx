@@ -273,7 +273,9 @@ export const PostCard: React.FC<PostCardProps> = ({
         {/* Attached Media / Picture */}
         {post.mediaUrl && (
           <div className="mb-4 rounded-xl overflow-hidden border border-slate-200/80 dark:border-slate-800 bg-slate-900 max-h-96 flex items-center justify-center">
-            {post.mediaUrl.startsWith('data:video/') || post.mediaUrl.endsWith('.mp4') ? (
+            {post.mediaType === 'video' ||
+              /^data:video\//i.test(post.mediaUrl) ||
+              /\.(mp4|webm|mov|m4v|ogg)(?:[?#].*)?$/i.test(post.mediaUrl) ? (
               <video
                 src={post.mediaUrl}
                 controls

@@ -108,6 +108,7 @@ export interface Post {
   comments: Comment[];
   userReaction?: ReactionType;
   mediaUrl?: string;
+  mediaType?: 'image' | 'video';
   isSaved?: boolean;
 }
 

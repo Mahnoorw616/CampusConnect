@@ -10,7 +10,13 @@ import { SellListingModal } from '../marketplace/SellListingModal';
 import { ListingDetailModal } from '../marketplace/ListingDetailModal';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { postsService, marketplaceService, notificationsService } from '../../services/api';
+import {
+  getErrorMessage,
+  mediaService,
+  postsService,
+  marketplaceService,
+  notificationsService,
+} from '../../services/api';
 import { Post, MarketplaceItem, Category, University, AppNotification } from '../../types';
 
 export const AppLayout: React.FC = () => {
@@ -88,20 +94,29 @@ export const AppLayout: React.FC = () => {
     content: string;
     category: Exclude<Category, 'All'>;
     university: Exclude<University, 'All'>;
-    mediaUrl?: string;
+    mediaFile?: File;
   }) => {
     if (!user) return;
     try {
+      const uploadedMedia = data.mediaFile
+        ? await mediaService.upload(data.mediaFile, 'post')
+        : undefined;
       await postsService.createPost({
-        ...data,
+        title: data.title,
+        content: data.content,
+        category: data.category,
+        university: data.university,
+        mediaUrl: uploadedMedia?.url,
+        mediaType: uploadedMedia?.mediaType,
         user,
       });
       showToast('Discussion published to campus feed', 'success');
       refreshHighlights();
       // Notify active pages to re-fetch if needed
       window.dispatchEvent(new CustomEvent('campuscrew:post-created'));
-    } catch {
-      showToast('Failed to post discussion', 'error');
+    } catch (error) {
+      showToast(getErrorMessage(error, 'Failed to post discussion'), 'error');
+      throw error;
     }
   };
 
@@ -113,16 +128,29 @@ export const AppLayout: React.FC = () => {
     university: Exclude<University, 'All'>;
     description: string;
     driveLink?: string;
-    coverImage?: string;
+    coverImageFile?: File;
   }) => {
     if (!user) return;
     try {
-      await marketplaceService.createListing(data, user);
+      const uploadedCover = data.coverImageFile
+        ? await mediaService.upload(data.coverImageFile, 'marketplace')
+        : undefined;
+      await marketplaceService.createListing({
+        title: data.title,
+        courseName: data.courseName,
+        courseCode: data.courseCode,
+        price: data.price,
+        university: data.university,
+        description: data.description,
+        driveLink: data.driveLink,
+        coverImage: uploadedCover?.url,
+      }, user);
       showToast('Study resource listed successfully', 'success');
       refreshHighlights();
       window.dispatchEvent(new CustomEvent('campuscrew:listing-created'));
-    } catch {
-      showToast('Failed to list resource', 'error');
+    } catch (error) {
+      showToast(getErrorMessage(error, 'Failed to list resource'), 'error');
+      throw error;
     }
   };
 
